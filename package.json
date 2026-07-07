@@ -1,0 +1,25 @@
+{
+  "name": "personal-investment-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed": "node server/seed/import-excel.js",
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev:server\" \"npm --prefix client run dev\"",
+    "dev:server": "set NODE_EXTRA_CA_CERTS=certs/local-ca.pem&& node --watch server/index.js",
+    "build": "npm --prefix client run build",
+    "start": "set NODE_EXTRA_CA_CERTS=certs/local-ca.pem&& node server/index.js",
+    "export-ca": "powershell -ExecutionPolicy Bypass -File scripts/export-local-ca.ps1"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "express-session": "^1.19.0",
+    "lowdb": "^7.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+client/node_modules/
+client/dist/
+
+# Real financial data and secrets — never committed, even to a private repo
+data/db.json
+certs/*.pem
+.env
+
+npm-debug.log*
