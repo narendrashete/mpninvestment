@@ -17,7 +17,8 @@ themselves. Don't add multi-user auth, logins, or roles.
 - Any outbound HTTPS call from Node (mfapi.in, Yahoo Finance) fails with
   `UNABLE_TO_VERIFY_LEAF_SIGNATURE` unless `NODE_EXTRA_CA_CERTS=certs/local-ca.pem` is set —
   Norton intercepts TLS on this machine. Already wired into `start.bat` and the npm scripts;
-  re-run `npm run export-ca` if it breaks after an antivirus update.
+  re-run `npm run export-ca` if it breaks after an antivirus update. This is a **Windows-only,
+  local-dev-only** workaround — never set it on the VPS, Ubuntu has no such interception.
 
 ## Holdings data model
 
@@ -44,5 +45,22 @@ themselves. Don't add multi-user auth, logins, or roles.
 
 ## Version control
 
-No git repo yet. When you set one up, a private remote (GitHub or similar) is fine — just
-never public, since the data includes real folio numbers and near-PAN details.
+Private GitHub repo (never public — real folio numbers and near-PAN details live in this
+data). `data/db.json`, `certs/*.pem`, and `.env` are gitignored and never pushed.
+
+## Login / auth
+
+`server/middleware/auth.js` only requires login when `AUTH_USERNAME` + `AUTH_PASSWORD_HASH`
+are set in `.env` (see `.env.example`) — local dev via `start.bat` has neither, so it stays
+login-free exactly as before. The VPS's `.env` sets both, so production is gated. Don't make
+login mandatory everywhere; that would break the frictionless local workflow this app was
+built for.
+
+## Deployment (Hostinger VPS)
+
+- Ubuntu 24.04, no domain yet — reachable over plain HTTP on the VPS's bare IP, no TLS.
+- App lives at `/opt/investment-app` on the VPS, run under PM2 as process `investment-app`.
+- `.github/workflows/deploy.yml` auto-deploys on push to `main`: SSH in, `git pull`, reinstall,
+  rebuild, `pm2 restart`. Needs repo secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`.
+- `data/db.json` is never touched by a deploy — it was copied to the VPS once via `scp` and
+  stays there; deploys only update code.
