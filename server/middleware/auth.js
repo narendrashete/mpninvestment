@@ -17,14 +17,20 @@ export function sessionMiddleware() {
 
 function loginHtml(error) {
   return `<!doctype html>
-<html><head><meta charset="utf-8"><title>Sign in — InvestTrack</title>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — InvestTrack</title>
 <style>
+  * { box-sizing: border-box; }
   body { font-family: system-ui, sans-serif; background: #f4f6fa; display: flex; align-items: center;
-         justify-content: center; height: 100vh; margin: 0; }
-  form { background: #fff; padding: 32px 36px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.1); width: 280px; }
+         justify-content: center; min-height: 100vh; margin: 0; padding: 16px; }
+  form { background: #fff; padding: 32px 36px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.1);
+         width: 100%; max-width: 320px; }
   h1 { font-size: 18px; margin: 0 0 20px; }
-  input { width: 100%; padding: 9px 10px; margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
-  button { width: 100%; padding: 10px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  input { width: 100%; padding: 11px 12px; margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 8px;
+          font-size: 16px; box-sizing: border-box; }
+  button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 8px;
+           font-size: 15px; cursor: pointer; }
   .err { color: #dc2626; font-size: 13px; margin: -6px 0 12px; }
 </style></head>
 <body>
