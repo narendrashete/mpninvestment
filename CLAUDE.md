@@ -58,9 +58,24 @@ built for.
 
 ## Deployment (Hostinger VPS)
 
-- Ubuntu 24.04, no domain yet — reachable over plain HTTP on the VPS's bare IP, no TLS.
-- App lives at `/opt/investment-app` on the VPS, run under PM2 as process `investment-app`.
-- `.github/workflows/deploy.yml` auto-deploys on push to `main`: SSH in, `git pull`, reinstall,
-  rebuild, `pm2 restart`. Needs repo secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`.
+- Ubuntu 24.04 at 200.97.162.75, domain `mpninvestment.primecomputers.co.in`. HTTPS via
+  Let's Encrypt/Certbot (nginx plugin, auto-renews); HTTP redirects to HTTPS.
+- App lives at `/opt/investment-app`, run under PM2 as process `investment-app`, registered
+  as a systemd service so it survives reboots.
+- Only the `deploy` user can SSH in — root login and password auth are both disabled
+  (`/etc/ssh/sshd_config.d/99-harden.conf`). `deploy` has **no password**, only an SSH key,
+  and passwordless sudo via `/etc/sudoers.d/deploy-nopasswd` (`NOPASSWD:ALL`) — grant this
+  *before* disabling root, not after, or you'll be locked out of privileged commands with no
+  way back in except the hosting provider's out-of-band browser console.
+- `.github/workflows/deploy.yml` auto-deploys on push to `main`: SSH in as `deploy`,
+  `git pull`, reinstall, rebuild, `pm2 restart`. Needs repo secrets `VPS_HOST`, `VPS_USER`,
+  `VPS_SSH_KEY` (a key generated solely for this, added to `deploy`'s `authorized_keys`).
+- The VPS pulls the repo itself via a separate **read-only GitHub deploy key**, generated
+  on the VPS so the private half never left it — not the same key as the one above.
 - `data/db.json` is never touched by a deploy — it was copied to the VPS once via `scp` and
   stays there; deploys only update code.
+- Curl/browsers on this Windows dev machine may report `CRYPT_E_NO_REVOCATION_CHECK` or
+  status `000` for `https://mpninvestment.primecomputers.co.in` — that's Norton's local TLS
+  interception on this PC (the same issue that affects mfapi.in/Yahoo calls), not a server
+  problem. Verify suspected HTTPS issues by curling from the VPS itself before assuming the
+  cert is broken.
