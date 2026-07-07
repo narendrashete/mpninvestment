@@ -12,6 +12,9 @@ export default function App() {
           <NavLink to="/" end>Dashboard</NavLink>
           <NavLink to="/investments">Investments</NavLink>
         </nav>
+        <form method="POST" action="/api/auth/logout" className="logout-form">
+          <button type="submit">Logout</button>
+        </form>
       </header>
       <main className="container">
         <Routes>
