@@ -19,6 +19,10 @@ export default function InvestmentForm({ initial, onClose, onSaved }) {
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const isShares = form.type === 'SHARES';
+  const isBank = form.type === 'BANK_BALANCE';
+  // A bank account is a single balance — keep invested and value in lock-step so
+  // it always shows a clean 0% gain and never double-counts.
+  const setBalance = (e) => setForm(f => ({ ...f, amountInvested: e.target.value, maturityValue: e.target.value }));
 
   const submit = async (e) => {
     e.preventDefault();
@@ -50,26 +54,34 @@ export default function InvestmentForm({ initial, onClose, onSaved }) {
             <label className="field">Holder
               <input value={form.holder} onChange={set('holder')} placeholder="e.g. Narendra" />
             </label>
-            <label className="field full">Name of Investment
+            <label className="field full">{isBank ? 'Bank / Account Name' : 'Name of Investment'}
               <input value={form.name} onChange={set('name')} required placeholder="e.g. HDFC, UTI MF, SBI" />
             </label>
-            <label className="field">Rate of Interest (%)
-              <input type="number" step="0.01" value={form.rateOfInterest} onChange={set('rateOfInterest')} />
-            </label>
-            <label className="field">Amount Invested (₹)
-              <input type="number" step="1" value={form.amountInvested} onChange={set('amountInvested')} required />
-            </label>
-            <label className="field">Investment Date
-              <input type="date" value={form.investmentDate} onChange={set('investmentDate')} />
-            </label>
-            <label className="field">Maturity Date
-              <input type="date" value={form.maturityDate} onChange={set('maturityDate')} />
-            </label>
-            <label className="field full">
-              {isShares ? 'Current Value (₹) — used until you add live holdings' : 'Maturity Value (₹) — entered manually'}
-              <input type="number" step="1" value={form.maturityValue} onChange={set('maturityValue')} />
-            </label>
-            <label className="field full">Notes
+            {isBank ? (
+              <label className="field full">Balance (₹)
+                <input type="number" step="1" value={form.maturityValue} onChange={setBalance} required />
+              </label>
+            ) : (
+              <>
+                <label className="field">Rate of Interest (%)
+                  <input type="number" step="0.01" value={form.rateOfInterest} onChange={set('rateOfInterest')} />
+                </label>
+                <label className="field">Amount Invested (₹)
+                  <input type="number" step="1" value={form.amountInvested} onChange={set('amountInvested')} required />
+                </label>
+                <label className="field">Investment Date
+                  <input type="date" value={form.investmentDate} onChange={set('investmentDate')} />
+                </label>
+                <label className="field">Maturity Date
+                  <input type="date" value={form.maturityDate} onChange={set('maturityDate')} />
+                </label>
+                <label className="field full">
+                  {isShares ? 'Current Value (₹) — used until you add live holdings' : 'Maturity Value (₹) — entered manually'}
+                  <input type="number" step="1" value={form.maturityValue} onChange={set('maturityValue')} />
+                </label>
+              </>
+            )}
+            <label className="field full">Notes{isBank ? ' (e.g. account number)' : ''}
               <input value={form.notes} onChange={set('notes')} />
             </label>
           </div>

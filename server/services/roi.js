@@ -61,8 +61,14 @@ export function enrich(investment, holdings, today = new Date()) {
   const simple = simpleReturn(invested, value);
   const annualized = annualizedReturn(invested, value, investment.investmentDate, endIso);
 
+  // A redeemed/renewed instrument is closed: its money has moved into a bank
+  // account (redeem) or a fresh FD (renew), so it must be excluded from live
+  // totals to avoid double-counting — but it stays visible as a record.
+  const closed = investment.status === 'redeemed' || investment.status === 'renewed';
+
   return {
     ...investment,
+    closed,
     currentValue: value,
     hasLiveHoldings: own.length > 0,
     holdingsCount: own.length,

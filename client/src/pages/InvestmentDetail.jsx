@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import { formatINR, formatPct, formatDate, typeLabel, daysLeftClass, daysLeftLabel } from '../lib/format.js';
+import { formatINR, formatPct, formatDate, typeLabel, statusLabel, daysLeftClass, daysLeftLabel } from '../lib/format.js';
 import InvestmentForm from '../components/InvestmentForm.jsx';
 import HoldingForm from '../components/HoldingForm.jsx';
+import RedeemForm from '../components/RedeemForm.jsx';
+import RenewForm from '../components/RenewForm.jsx';
 
 export default function InvestmentDetail() {
   const { id } = useParams();
@@ -12,7 +14,10 @@ export default function InvestmentDetail() {
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
   const [addingHolding, setAddingHolding] = useState(false);
+  const [redeeming, setRedeeming] = useState(false);
+  const [renewing, setRenewing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [links, setLinks] = useState({});
 
   const load = useCallback(
     () => api.investment(id).then(setInv).catch(err => setError(err.message)),
@@ -20,10 +25,27 @@ export default function InvestmentDetail() {
   );
   useEffect(() => { load(); }, [load]);
 
+  // Resolve names for any linked instruments (renewal chain / credited account).
+  useEffect(() => {
+    if (!inv) return;
+    const ids = [inv.renewedToId, inv.renewedFromId, inv.redeemedToId].filter(Boolean);
+    ids.forEach(lid => {
+      if (links[lid] !== undefined) return;
+      api.investment(lid)
+        .then(x => setLinks(m => ({ ...m, [lid]: x.name })))
+        .catch(() => setLinks(m => ({ ...m, [lid]: null })));
+    });
+  }, [inv, links]);
+
   if (error) return <div className="error-banner">{error}</div>;
   if (!inv) return <p className="muted">Loading…</p>;
 
+  const linkTo = (lid) => <Link to={`/investments/${lid}`}>{links[lid] || 'view'}</Link>;
+  const canRedeem = (inv.type === 'FD' || inv.type === 'BANK_SHARES') && !inv.closed;
+  const canRenew = inv.type === 'FD' && !inv.closed;
+
   const isShares = inv.type === 'SHARES';
+  const isBank = inv.type === 'BANK_BALANCE';
   const gain = inv.currentValue != null && inv.amountInvested != null
     ? inv.currentValue - inv.amountInvested : null;
 
@@ -69,44 +91,85 @@ export default function InvestmentDetail() {
       <div className="detail-header">
         <h1>{inv.name}</h1>
         <span className="badge badge-type">{typeLabel(inv.type)}</span>
-        {inv.daysToMaturity != null && inv.type !== 'BANK_BALANCE' && (
+        {!inv.closed && inv.daysToMaturity != null && inv.type !== 'BANK_BALANCE' && (
           <span className={`badge ${daysLeftClass(inv.daysToMaturity)}`}>{daysLeftLabel(inv.daysToMaturity)}</span>
         )}
+        {inv.closed && <span className="badge badge-overdue">{statusLabel(inv.status)}</span>}
         <span style={{ flex: 1 }} />
+        {canRenew && <button className="btn" onClick={() => setRenewing(true)}>Renew</button>}
+        {canRedeem && <button className="btn btn-primary" onClick={() => setRedeeming(true)}>Redeem</button>}
         <button className="btn" onClick={() => setEditing(true)}>Edit</button>
         <button className="btn btn-danger" onClick={del}>Delete</button>
       </div>
       <p className="muted" style={{ margin: '0 0 18px' }}>Holder: {inv.holder || '—'}</p>
 
-      <div className="grid grid-cards" style={{ marginBottom: 16 }}>
-        <div className="card stat">
-          <div className="label">Amount Invested</div>
-          <div className="value">{formatINR(inv.amountInvested)}</div>
+      {inv.status === 'redeemed' && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          Redeemed for <strong>{formatINR(inv.redeemedAmount)}</strong> on {formatDate(inv.redeemedOn)}
+          {inv.redeemedToId
+            ? <> — credited to {linkTo(inv.redeemedToId)}.</>
+            : <> — not credited to any tracked account.</>}
         </div>
-        <div className="card stat">
-          <div className="label">{isShares ? (inv.hasLiveHoldings ? 'Live Value' : 'Current Value (manual)') : 'Maturity Value'}</div>
-          <div className="value">{formatINR(inv.currentValue)}</div>
+      )}
+      {inv.status === 'renewed' && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          Renewed on {formatDate(inv.renewedOn)} into {linkTo(inv.renewedToId)}.
         </div>
-        <div className="card stat">
-          <div className="label">Gain</div>
-          <div className={`value ${gain >= 0 ? 'pos' : 'neg'}`}>{formatINR(gain)}</div>
-          <div className={`sub ${gain >= 0 ? 'pos' : 'neg'}`}>{formatPct(inv.simpleReturn)}</div>
+      )}
+      {inv.renewedFromId && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          Renewed from {linkTo(inv.renewedFromId)}.
         </div>
-        <div className="card stat">
-          <div className="label">Annualized Return</div>
-          <div className="value">{inv.annualizedReturn != null ? `${formatPct(inv.annualizedReturn)} p.a.` : '—'}</div>
-        </div>
-      </div>
+      )}
 
-      <div className="card">
-        <h3>Details</h3>
-        <dl className="kv">
-          <dt>Rate of Interest</dt><dd>{inv.rateOfInterest != null ? `${inv.rateOfInterest}%` : '—'}</dd>
-          <dt>Investment Date</dt><dd>{formatDate(inv.investmentDate)}</dd>
-          <dt>Maturity Date</dt><dd>{formatDate(inv.maturityDate)}</dd>
-          <dt>Notes</dt><dd>{inv.notes || '—'}</dd>
-        </dl>
-      </div>
+      {isBank ? (
+        // A bank account is just a running balance — no invested/gain/rate/dates.
+        <>
+          <div className="grid grid-cards" style={{ marginBottom: 16 }}>
+            <div className="card stat">
+              <div className="label">Balance</div>
+              <div className="value">{formatINR(inv.currentValue)}</div>
+            </div>
+          </div>
+          {inv.notes && (
+            <div className="card">
+              <dl className="kv"><dt>Notes</dt><dd>{inv.notes}</dd></dl>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cards" style={{ marginBottom: 16 }}>
+            <div className="card stat">
+              <div className="label">Amount Invested</div>
+              <div className="value">{formatINR(inv.amountInvested)}</div>
+            </div>
+            <div className="card stat">
+              <div className="label">{isShares ? (inv.hasLiveHoldings ? 'Live Value' : 'Current Value (manual)') : 'Maturity Value'}</div>
+              <div className="value">{formatINR(inv.currentValue)}</div>
+            </div>
+            <div className="card stat">
+              <div className="label">Gain</div>
+              <div className={`value ${gain >= 0 ? 'pos' : 'neg'}`}>{formatINR(gain)}</div>
+              <div className={`sub ${gain >= 0 ? 'pos' : 'neg'}`}>{formatPct(inv.simpleReturn)}</div>
+            </div>
+            <div className="card stat">
+              <div className="label">Annualized Return</div>
+              <div className="value">{inv.annualizedReturn != null ? `${formatPct(inv.annualizedReturn)} p.a.` : '—'}</div>
+            </div>
+          </div>
+
+          <div className="card">
+            <h3>Details</h3>
+            <dl className="kv">
+              <dt>Rate of Interest</dt><dd>{inv.rateOfInterest != null ? `${inv.rateOfInterest}%` : '—'}</dd>
+              <dt>Investment Date</dt><dd>{formatDate(inv.investmentDate)}</dd>
+              <dt>Maturity Date</dt><dd>{formatDate(inv.maturityDate)}</dd>
+              <dt>Notes</dt><dd>{inv.notes || '—'}</dd>
+            </dl>
+          </div>
+        </>
+      )}
 
       {isShares && (
         <>
@@ -182,6 +245,20 @@ export default function InvestmentDetail() {
           investmentId={inv.id}
           onClose={() => setAddingHolding(false)}
           onSaved={() => { setAddingHolding(false); load(); }}
+        />
+      )}
+      {redeeming && (
+        <RedeemForm
+          inv={inv}
+          onClose={() => setRedeeming(false)}
+          onSaved={() => { setRedeeming(false); load(); }}
+        />
+      )}
+      {renewing && (
+        <RenewForm
+          inv={inv}
+          onClose={() => setRenewing(false)}
+          onSaved={(saved) => { setRenewing(false); navigate(`/investments/${saved.renewed.id}`); }}
         />
       )}
     </>

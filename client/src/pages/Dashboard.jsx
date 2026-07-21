@@ -51,8 +51,15 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    // auto-refresh live prices (server throttles to 15 min), then load
-    api.refreshPrices().catch(() => {}).finally(() => load());
+    // Render immediately from cached prices, then refresh live prices in the
+    // background and reload only if any actually changed. (Blocking the first
+    // paint on a full price refresh is what used to make this take minutes.)
+    load();
+    setRefreshing(true);
+    api.refreshPrices()
+      .then(r => { if (r.refreshed && r.updated > 0) return load(); })
+      .catch(() => {})
+      .finally(() => setRefreshing(false));
   }, [load]);
 
   const changeWindow = async (days) => {

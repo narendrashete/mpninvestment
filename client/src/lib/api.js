@@ -23,6 +23,8 @@ export const api = {
   createInvestment: (body) => request('/api/investments', { method: 'POST', body: JSON.stringify(body) }),
   updateInvestment: (id, body) => request(`/api/investments/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteInvestment: (id) => request(`/api/investments/${id}`, { method: 'DELETE' }),
+  redeemInvestment: (id, body) => request(`/api/investments/${id}/redeem`, { method: 'POST', body: JSON.stringify(body) }),
+  renewInvestment: (id, body) => request(`/api/investments/${id}/renew`, { method: 'POST', body: JSON.stringify(body) }),
 
   createHolding: (body) => request('/api/holdings', { method: 'POST', body: JSON.stringify(body) }),
   updateHolding: (id, body) => request(`/api/holdings/${id}`, { method: 'PUT', body: JSON.stringify(body) }),

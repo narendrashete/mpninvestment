@@ -46,3 +46,9 @@ export function daysLeftLabel(days) {
   if (days === 0) return 'Today';
   return `${days}d left`;
 }
+
+export const STATUS_LABELS = { redeemed: 'Redeemed', renewed: 'Renewed' };
+
+export function statusLabel(s) {
+  return STATUS_LABELS[s] || null;
+}

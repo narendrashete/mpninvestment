@@ -43,6 +43,22 @@ themselves. Don't add multi-user auth, logins, or roles.
 - HDFC demat mutual fund holdings are Regular plans, not Direct — search and match
   accordingly; don't assume Direct just because other platforms in this app are.
 
+## FD redemption / renewal (`status` on an investment)
+
+- An FD or Bank Share can be **redeemed** (`POST /api/investments/:id/redeem`) or an
+  FD **renewed** (`POST /api/investments/:id/renew`). Both set `status` on the old
+  record: `redeemed` or `renewed`. Absent `status` = active.
+- A closed instrument (`status` redeemed/renewed) is a **record only** — `enrich`
+  flags it `closed` and it is excluded from every live aggregate (dashboard totals,
+  maturing/overdue lists, best/worst, category/holder summaries, and the Investments
+  list totals). This prevents double-counting money that has moved elsewhere.
+- **Redeem** optionally credits the proceeds to a `BANK_BALANCE` account, bumping that
+  account's `amountInvested` and `maturityValue` by the redeemed amount. Fields on the
+  redeemed FD: `redeemedOn`, `redeemedAmount`, `redeemedToId`.
+- **Renew** creates a brand-new FD (its own record) with `renewedFromId` back to the
+  original; the original gets `renewedToId` + `renewedOn`. Renewal chains are kept as
+  separate linked rows, not mutated in place.
+
 ## Version control
 
 Private GitHub repo (never public — real folio numbers and near-PAN details live in this

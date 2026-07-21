@@ -48,8 +48,14 @@ router.post('/refresh', async (req, res) => {
   }
 
   const results = { updated: 0, skipped: 0, failed: [] };
-  for (const holding of db.data.holdings) {
-    if (holding.kind === 'OTHER') { results.skipped++; continue; }
+  const live = db.data.holdings.filter(h => h.kind !== 'OTHER');
+  results.skipped = db.data.holdings.length - live.length;
+
+  // Fetch every holding's price concurrently — a serial loop meant one slow
+  // (up to 15s) network call per holding stacked up, which is what made the
+  // dashboard take minutes to load on this Norton-intercepted machine.
+  await Promise.all(live.map(async (holding) => {
+    const label = holding.displayName || holding.symbol || holding.schemeCode;
     try {
       const p = await fetchPrice(holding);
       if (p) {
@@ -59,12 +65,12 @@ router.post('/refresh', async (req, res) => {
         holding.isin ||= p.isin || null;
         results.updated++;
       } else {
-        results.failed.push(holding.displayName || holding.symbol || holding.schemeCode);
+        results.failed.push(label);
       }
     } catch (err) {
-      results.failed.push(`${holding.displayName || holding.symbol || holding.schemeCode}: ${err.message}`);
+      results.failed.push(`${label}: ${err.message}`);
     }
-  }
+  }));
 
   if (results.updated > 0 || db.data.holdings.length === 0) {
     db.data.settings.lastPriceRefresh = new Date().toISOString();

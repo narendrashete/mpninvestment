@@ -39,7 +39,9 @@ router.get('/', (req, res) => {
 // Dashboard aggregate: summaries, maturing-soon, best/worst.
 router.get('/dashboard', (req, res) => {
   const windowDays = Number(req.query.windowDays) || db.data.settings.maturityWindowDays || 60;
-  const enriched = db.data.investments.map(i => enrich(i, db.data.holdings));
+  // Closed (redeemed/renewed) instruments are records only — keep them out of
+  // every live aggregate so money isn't counted in both the old FD and where it went.
+  const enriched = db.data.investments.map(i => enrich(i, db.data.holdings)).filter(i => !i.closed);
 
   const totalInvested = enriched.reduce((a, i) => a + (i.amountInvested || 0), 0);
   const totalValue = enriched.reduce((a, i) => a + (i.currentValue || 0), 0);
@@ -118,6 +120,93 @@ router.delete('/:id', async (req, res) => {
   db.data.holdings = db.data.holdings.filter(h => h.investmentId !== req.params.id);
   await db.write();
   res.json({ ok: true });
+});
+
+const REDEEMABLE = ['FD', 'BANK_SHARES'];
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+function assertOpen(inv, res) {
+  if (inv.status === 'redeemed') { res.status(400).json({ error: 'This instrument was already redeemed.' }); return false; }
+  if (inv.status === 'renewed') { res.status(400).json({ error: 'This instrument was already renewed.' }); return false; }
+  return true;
+}
+
+// Redeem a matured FD/Bank-Share: close it and (optionally) credit the proceeds
+// to a Bank Balance account, which is bumped by the redeemed amount.
+router.post('/:id/redeem', async (req, res) => {
+  const inv = db.data.investments.find(i => i.id === req.params.id);
+  if (!inv) return res.status(404).json({ error: 'Investment not found' });
+  if (!REDEEMABLE.includes(inv.type)) return res.status(400).json({ error: 'Only FDs and Bank Shares can be redeemed.' });
+  if (!assertOpen(inv, res)) return;
+
+  const amount = req.body.amount === '' || req.body.amount == null
+    ? (inv.maturityValue ?? inv.amountInvested) : Number(req.body.amount);
+  if (!amount || isNaN(amount) || amount <= 0) return res.status(400).json({ error: 'amount must be a positive number' });
+  const date = req.body.date || todayIso();
+  const toAccountId = req.body.toAccountId || null;
+
+  let account = null;
+  if (toAccountId) {
+    account = db.data.investments.find(i => i.id === toAccountId);
+    if (!account) return res.status(400).json({ error: 'Target bank account does not exist' });
+    if (account.type !== 'BANK_BALANCE') return res.status(400).json({ error: 'Proceeds can only be credited to a Bank Balance account' });
+    account.amountInvested = (account.amountInvested || 0) + amount;
+    account.maturityValue = (account.maturityValue || 0) + amount;
+  }
+
+  inv.status = 'redeemed';
+  inv.redeemedOn = date;
+  inv.redeemedAmount = amount;
+  inv.redeemedToId = toAccountId;
+  await db.write();
+  res.json({
+    investment: enrich(inv, db.data.holdings),
+    account: account ? enrich(account, db.data.holdings) : null
+  });
+});
+
+// Renew an FD: close the old one and create a fresh FD (its own record), with a
+// link between the two so the renewal chain is kept separately.
+router.post('/:id/renew', async (req, res) => {
+  const old = db.data.investments.find(i => i.id === req.params.id);
+  if (!old) return res.status(404).json({ error: 'Investment not found' });
+  if (old.type !== 'FD') return res.status(400).json({ error: 'Only FDs can be renewed.' });
+  if (!assertOpen(old, res)) return;
+
+  try {
+    const b = req.body;
+    const num = (v, fallback) => (v === '' || v == null ? fallback : Number(v));
+    const principal = num(b.amountInvested, old.maturityValue ?? old.amountInvested);
+    if (!principal || isNaN(principal) || principal <= 0) throw new Error('amountInvested must be a positive number');
+
+    const start = b.investmentDate || old.maturityDate || todayIso();
+    const renewed = {
+      id: newId('inv'),
+      type: 'FD',
+      holder: old.holder ?? null,
+      name: (b.name && String(b.name).trim()) || old.name,
+      rateOfInterest: num(b.rateOfInterest, old.rateOfInterest ?? null),
+      investmentDate: start,
+      maturityDate: b.maturityDate || null,
+      amountInvested: principal,
+      maturityValue: num(b.maturityValue, null),
+      notes: (b.notes && String(b.notes).trim()) || null,
+      status: 'active',
+      renewedFromId: old.id
+    };
+    db.data.investments.push(renewed);
+
+    old.status = 'renewed';
+    old.renewedOn = start;
+    old.renewedToId = renewed.id;
+    await db.write();
+    res.status(201).json({
+      renewed: enrich(renewed, db.data.holdings),
+      original: enrich(old, db.data.holdings)
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 export default router;
