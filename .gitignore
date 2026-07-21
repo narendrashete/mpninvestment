@@ -3,7 +3,8 @@ client/node_modules/
 client/dist/
 
 # Real financial data and secrets — never committed, even to a private repo
-data/db.json
+data/*.json
+data/*.bak*
 certs/*.pem
 .env
 
