@@ -115,6 +115,7 @@ export function holderSummary(enriched) {
   for (const s of Object.values(byHolder)) {
     s.gain = s.value - s.invested;
     s.simpleReturn = s.invested ? s.gain / s.invested : null;
+    s.categories = categorySummary(enriched.filter(i => (i.holder || 'Unknown') === s.holder));
   }
   return Object.values(byHolder);
 }

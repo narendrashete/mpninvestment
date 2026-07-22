@@ -18,6 +18,42 @@ function MaturityRow({ inv }) {
   );
 }
 
+function HolderBreakdownModal({ holder, onClose }) {
+  return (
+    <div className="modal-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 480 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <h2 style={{ margin: 0 }}>{holder.holder}</h2>
+          <button type="button" className="btn btn-sm" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table>
+            <thead><tr><th>Category</th><th className="num">Invested</th><th className="num">Value</th><th className="num">ROI</th></tr></thead>
+            <tbody>
+              {holder.categories.map(c => (
+                <tr key={c.type}>
+                  <td>{typeLabel(c.type)} <span className="muted">({c.count})</span></td>
+                  <td className="num">{formatINR(c.invested)}</td>
+                  <td className="num">{formatINR(c.value)}</td>
+                  <td className={`num ${c.simpleReturn >= 0 ? 'pos' : 'neg'}`}>{formatPct(c.simpleReturn)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ fontWeight: 700 }}>
+                <td>Total ({holder.count})</td>
+                <td className="num">{formatINR(holder.invested)}</td>
+                <td className="num">{formatINR(holder.value)}</td>
+                <td className={`num ${holder.simpleReturn >= 0 ? 'pos' : 'neg'}`}>{formatPct(holder.simpleReturn)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PerformerRow({ inv }) {
   const navigate = useNavigate();
   const cls = inv.roi >= 0 ? 'pos' : 'neg';
@@ -40,6 +76,7 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [windowDays, setWindowDays] = useState(null);
+  const [holderDetail, setHolderDetail] = useState(null);
 
   const load = useCallback(async (days) => {
     try {
@@ -119,7 +156,16 @@ export default function Dashboard() {
         </div>
         {byHolder.map(h => (
           <div className="card stat" key={h.holder}>
-            <div className="label">{h.holder}</div>
+            <div className="label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {h.holder}
+              <button
+                type="button"
+                className="icon-btn"
+                title={`${h.holder}'s category breakdown`}
+                aria-label={`${h.holder}'s category breakdown`}
+                onClick={() => setHolderDetail(h)}
+              >+</button>
+            </div>
             <div className="value" style={{ fontSize: 19 }}>{formatINR(h.value)}</div>
             <div className={`sub ${h.gain >= 0 ? 'pos' : 'neg'}`}>
               {formatINR(h.gain)} ({formatPct(h.simpleReturn)})
@@ -127,6 +173,8 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {holderDetail && <HolderBreakdownModal holder={holderDetail} onClose={() => setHolderDetail(null)} />}
 
       <div className="grid grid-2">
         <div className="card">

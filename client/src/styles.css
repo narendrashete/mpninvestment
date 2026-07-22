@@ -147,6 +147,24 @@ tr.clickable:hover { background: #f1f5f9; }
 .btn-sm { padding: 4px 10px; font-size: 13px; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 
+.icon-btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn:hover { background: #f1f5f9; color: var(--text); }
+
 .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
 .toolbar .spacer { flex: 1; }
 
