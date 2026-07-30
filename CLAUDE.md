@@ -20,6 +20,18 @@ themselves. Don't add multi-user auth, logins, or roles.
   re-run `npm run export-ca` if it breaks after an antivirus update. This is a **Windows-only,
   local-dev-only** workaround — never set it on the VPS, Ubuntu has no such interception.
 
+## Masters (holder + investment name pick-lists)
+
+- `db.data.masters.holders` and `.investmentNames` are the only source of those two fields.
+  The Add/Edit Investment form offers them as dropdowns; `POST`/`PUT /api/investments` (and
+  `/renew`) **reject** any holder or name not on the list. New entries are created only on
+  the Masters page (`/masters`, `/api/masters`) — don't reintroduce free-text entry.
+- `db.js` back-fills the masters from whatever the existing investments use on startup, so
+  the lists can never go out of sync with real data. Any script that writes investments
+  directly must call `ensureMaster()` too (see `server/seed/import-excel.js`).
+- Renaming a master entry cascades to every investment using the old value; deleting one is
+  refused while it's still in use. That's why the UI shows a usage count per entry.
+
 ## Holdings data model
 
 - `maturityValue` is manual-entry only for FD, Bank Shares, and Bank Balance types.
@@ -52,6 +64,10 @@ themselves. Don't add multi-user auth, logins, or roles.
   flags it `closed` and it is excluded from every live aggregate (dashboard totals,
   maturing/overdue lists, best/worst, category/holder summaries, and the Investments
   list totals). This prevents double-counting money that has moved elsewhere.
+- Closed records don't appear on the Dashboard or the Investments list at all. They live
+  on their own **Redeemed / Renewed** tab (`/closed`, `GET /api/investments/closed`),
+  which reports their figures separately and resolves the linked record (credited bank
+  account / renewed-into FD) server-side so a row click can show full details.
 - **Redeem** optionally credits the proceeds to a `BANK_BALANCE` account, bumping that
   account's `amountInvested` and `maturityValue` by the redeemed amount. Fields on the
   redeemed FD: `redeemedOn`, `redeemedAmount`, `redeemedToId`.

@@ -19,6 +19,7 @@ export const api = {
     const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
     return request(`/api/investments${q ? `?${q}` : ''}`);
   },
+  closed: () => request('/api/investments/closed'),
   investment: (id) => request(`/api/investments/${id}`),
   createInvestment: (body) => request('/api/investments', { method: 'POST', body: JSON.stringify(body) }),
   updateInvestment: (id, body) => request(`/api/investments/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
@@ -36,5 +37,10 @@ export const api = {
   refreshPrices: (force) => request(`/api/prices/refresh${force ? '?force=1' : ''}`, { method: 'POST' }),
 
   settings: () => request('/api/settings'),
-  updateSettings: (body) => request('/api/settings', { method: 'PUT', body: JSON.stringify(body) })
+  updateSettings: (body) => request('/api/settings', { method: 'PUT', body: JSON.stringify(body) }),
+
+  masters: () => request('/api/masters'),
+  addMaster: (kind, value) => request(`/api/masters/${kind}`, { method: 'POST', body: JSON.stringify({ value }) }),
+  renameMaster: (kind, from, to) => request(`/api/masters/${kind}`, { method: 'PUT', body: JSON.stringify({ from, to }) }),
+  deleteMaster: (kind, value) => request(`/api/masters/${kind}`, { method: 'DELETE', body: JSON.stringify({ value }) })
 };

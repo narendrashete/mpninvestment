@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { TYPE_LABELS } from '../lib/format.js';
 
@@ -16,6 +17,17 @@ export default function InvestmentForm({ initial, onClose, onSaved }) {
   );
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Holder and name come from the masters — new entries are added there, not here.
+  const [masters, setMasters] = useState(null);
+
+  useEffect(() => {
+    api.masters()
+      .then(m => setMasters({
+        holders: m.holders.map(h => h.value),
+        investmentNames: m.investmentNames.map(n => n.value)
+      }))
+      .catch(err => setError(err.message));
+  }, []);
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const isShares = form.type === 'SHARES';
@@ -52,11 +64,21 @@ export default function InvestmentForm({ initial, onClose, onSaved }) {
               </select>
             </label>
             <label className="field">Holder
-              <input value={form.holder} onChange={set('holder')} placeholder="e.g. Narendra" />
+              <select value={form.holder} onChange={set('holder')} disabled={!masters}>
+                <option value="">{masters ? '— select holder —' : 'Loading…'}</option>
+                {(masters?.holders || []).map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
             </label>
             <label className="field full">{isBank ? 'Bank / Account Name' : 'Name of Investment'}
-              <input value={form.name} onChange={set('name')} required placeholder="e.g. HDFC, UTI MF, SBI" />
+              <select value={form.name} onChange={set('name')} required disabled={!masters}>
+                <option value="">{masters ? '— select name —' : 'Loading…'}</option>
+                {(masters?.investmentNames || []).map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
             </label>
+            <p className="field full muted" style={{ margin: '-6px 0 0', fontSize: 12.5 }}>
+              Holders and names come from the masters — add a new one on the{' '}
+              <Link to="/masters" onClick={onClose}>Masters</Link> page.
+            </p>
             {isBank ? (
               <label className="field full">Balance (₹)
                 <input type="number" step="1" value={form.maturityValue} onChange={setBalance} required />

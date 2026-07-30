@@ -6,14 +6,31 @@ const router = Router();
 
 const TYPES = ['FD', 'SHARES', 'BANK_SHARES', 'BANK_BALANCE'];
 
+// Holder and name are chosen from the masters — resolve to the stored spelling
+// and reject anything not on the list (new entries are added on Masters).
+function fromMaster(kind, value, label) {
+  const v = String(value).trim();
+  const match = db.data.masters[kind].find(x => x.toLowerCase() === v.toLowerCase());
+  if (!match) throw new Error(`${label} "${v}" is not in the master list — add it on the Masters page first.`);
+  return match;
+}
+
 function sanitize(body, existing = {}) {
   const inv = { ...existing };
   if (body.type !== undefined) {
     if (!TYPES.includes(body.type)) throw new Error(`type must be one of ${TYPES.join(', ')}`);
     inv.type = body.type;
   }
-  for (const f of ['holder', 'name', 'notes']) {
-    if (body[f] !== undefined) inv[f] = body[f] === '' ? null : String(body[f]).trim();
+  if (body.holder !== undefined) {
+    inv.holder = body.holder === '' || body.holder == null
+      ? null : fromMaster('holders', body.holder, 'Holder');
+  }
+  if (body.name !== undefined) {
+    inv.name = body.name === '' || body.name == null
+      ? null : fromMaster('investmentNames', body.name, 'Investment name');
+  }
+  if (body.notes !== undefined) {
+    inv.notes = body.notes === '' ? null : String(body.notes).trim();
   }
   for (const f of ['investmentDate', 'maturityDate']) {
     if (body[f] !== undefined) inv[f] = body[f] || null;
@@ -74,6 +91,53 @@ router.get('/dashboard', (req, res) => {
     byCategory: categorySummary(enriched),
     byHolder: holderSummary(enriched),
     lastPriceRefresh: db.data.settings.lastPriceRefresh
+  });
+});
+
+// Closed ledger: everything redeemed or renewed, kept out of the dashboard
+// totals and reported here instead, with the linked record resolved so the
+// figures can be shown without a second round-trip per row.
+router.get('/closed', (req, res) => {
+  const brief = (id) => {
+    const x = id && db.data.investments.find(i => i.id === id);
+    if (!x) return null;
+    return {
+      id: x.id, type: x.type, name: x.name, holder: x.holder,
+      amountInvested: x.amountInvested ?? null, maturityValue: x.maturityValue ?? null,
+      rateOfInterest: x.rateOfInterest ?? null,
+      investmentDate: x.investmentDate ?? null, maturityDate: x.maturityDate ?? null
+    };
+  };
+
+  const closed = db.data.investments
+    .map(i => enrich(i, db.data.holdings))
+    .filter(i => i.closed);
+
+  const redeemed = closed
+    .filter(i => i.status === 'redeemed')
+    .map(i => ({ ...i, creditedTo: brief(i.redeemedToId) }))
+    .sort((a, b) => String(b.redeemedOn || '').localeCompare(String(a.redeemedOn || '')));
+
+  const renewed = closed
+    .filter(i => i.status === 'renewed')
+    .map(i => ({ ...i, renewedInto: brief(i.renewedToId) }))
+    .sort((a, b) => String(b.renewedOn || '').localeCompare(String(a.renewedOn || '')));
+
+  const sum = (list, pick) => list.reduce((a, i) => a + (pick(i) || 0), 0);
+
+  res.json({
+    redeemed,
+    renewed,
+    totals: {
+      redeemedCount: redeemed.length,
+      redeemedPrincipal: sum(redeemed, i => i.amountInvested),
+      redeemedProceeds: sum(redeemed, i => i.redeemedAmount ?? i.maturityValue),
+      renewedCount: renewed.length,
+      renewedPrincipal: sum(renewed, i => i.amountInvested),
+      // What the renewals rolled into — already counted on the dashboard as the
+      // new FDs, shown here only to close the loop on each old record.
+      renewedInto: sum(renewed, i => i.renewedInto?.amountInvested)
+    }
   });
 });
 
@@ -184,7 +248,9 @@ router.post('/:id/renew', async (req, res) => {
       id: newId('inv'),
       type: 'FD',
       holder: old.holder ?? null,
-      name: (b.name && String(b.name).trim()) || old.name,
+      name: b.name && String(b.name).trim()
+        ? fromMaster('investmentNames', b.name, 'Investment name')
+        : old.name,
       rateOfInterest: num(b.rateOfInterest, old.rateOfInterest ?? null),
       investmentDate: start,
       maturityDate: b.maturityDate || null,

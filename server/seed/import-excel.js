@@ -3,7 +3,7 @@
 // Refuses to run if investments already exist (pass --force to wipe and reimport).
 import { readFileSync, existsSync } from 'node:fs';
 import xlsx from 'xlsx';
-import db, { newId, dbFile } from '../db.js';
+import db, { newId, dbFile, ensureMaster } from '../db.js';
 
 const args = process.argv.slice(2).filter(a => a !== '--force');
 const force = process.argv.includes('--force');
@@ -101,6 +101,11 @@ for (const row of rows) {
 
 db.data.investments = investments;
 db.data.holdings = [];
+// Seed the pick-lists from the sheet, so imported holders/names are selectable.
+for (const inv of investments) {
+  ensureMaster('holders', inv.holder);
+  ensureMaster('investmentNames', inv.name);
+}
 await db.write();
 
 const byType = {};

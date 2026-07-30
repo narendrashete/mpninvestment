@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import { formatINR, formatPct, formatDate, typeLabel, statusLabel, TYPE_LABELS, daysLeftClass, daysLeftLabel } from '../lib/format.js';
+import { formatINR, formatPct, formatDate, typeLabel, TYPE_LABELS, daysLeftClass, daysLeftLabel } from '../lib/format.js';
 import InvestmentForm from '../components/InvestmentForm.jsx';
 
 export default function Investments() {
@@ -13,7 +13,10 @@ export default function Investments() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
 
-  const load = () => api.investments().then(setList).catch(err => setError(err.message));
+  // Live instruments only — redeemed/renewed records live on the Redeemed / Renewed tab.
+  const load = () => api.investments()
+    .then(rows => setList(rows.filter(r => !r.closed)))
+    .catch(err => setError(err.message));
   useEffect(() => { load(); }, []);
 
   const holders = useMemo(
@@ -32,15 +35,10 @@ export default function Investments() {
     return out;
   }, [list, typeFilter, holderFilter, search]);
 
-  // Closed (redeemed/renewed) instruments are records only — leave them out of
-  // the totals so their money isn't counted twice.
-  const totals = useMemo(() => {
-    const open = filtered.filter(i => !i.closed);
-    return {
-      invested: open.reduce((a, i) => a + (i.amountInvested || 0), 0),
-      value: open.reduce((a, i) => a + (i.currentValue || 0), 0)
-    };
-  }, [filtered]);
+  const totals = useMemo(() => ({
+    invested: filtered.reduce((a, i) => a + (i.amountInvested || 0), 0),
+    value: filtered.reduce((a, i) => a + (i.currentValue || 0), 0)
+  }), [filtered]);
 
   if (error) return <div className="error-banner">{error}</div>;
   if (!list) return <p className="muted">Loading…</p>;
@@ -77,13 +75,12 @@ export default function Investments() {
           </thead>
           <tbody>
             {filtered.map(inv => (
-              <tr key={inv.id} className="clickable" onClick={() => navigate(`/investments/${inv.id}`)} style={inv.closed ? { opacity: 0.55 } : undefined}>
+              <tr key={inv.id} className="clickable" onClick={() => navigate(`/investments/${inv.id}`)}>
                 <td><span className="badge badge-type">{typeLabel(inv.type)}</span></td>
                 <td>{inv.holder || '—'}</td>
                 <td>
                   <strong>{inv.name}</strong>
-                  {inv.closed && <span className="badge badge-overdue" style={{ marginLeft: 6 }}>{statusLabel(inv.status)}</span>}
-                  {inv.hasLiveHoldings && <span className="muted" style={{ fontSize: 12 }}> · {inv.holdingsCount} live holding{inv.holdingsCount > 1 ? 's' : ''}</span>}
+                  {inv.hasLiveHoldings &&<span className="muted" style={{ fontSize: 12 }}> · {inv.holdingsCount} live holding{inv.holdingsCount > 1 ? 's' : ''}</span>}
                 </td>
                 <td className="num">{inv.rateOfInterest ?? '—'}</td>
                 <td>{formatDate(inv.investmentDate)}</td>

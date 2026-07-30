@@ -233,8 +233,26 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; 
 .search-results .item:last-child { border-bottom: none; }
 .search-results .item:hover { background: #eff6ff; }
 
-.page-title { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 18px; }
+.page-title { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 18px; flex-wrap: wrap; }
 .page-title h1 { margin: 0; font-size: 22px; }
+.page-title .muted { max-width: 640px; }
+
+/* In-page tab strip (Redeemed / Renewed) */
+.subtabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.subtabs button {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+.subtabs button:hover { background: #f8fafc; color: var(--text); }
+.subtabs button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.subtabs button.active .muted { color: #dbeafe; }
 
 .empty { color: var(--muted); text-align: center; padding: 24px 0; font-size: 14px; }
 
