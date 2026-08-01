@@ -32,6 +32,9 @@ function sanitize(group, body, existing = {}) {
   if (body.notes !== undefined) {
     inv.notes = body.notes === '' ? null : String(body.notes).trim();
   }
+  if (body.nominee !== undefined) {
+    inv.nominee = body.nominee === '' || body.nominee == null ? null : String(body.nominee).trim();
+  }
   for (const f of ['investmentDate', 'maturityDate']) {
     if (body[f] !== undefined) inv[f] = body[f] || null;
   }
@@ -271,6 +274,7 @@ router.post('/:id/renew', async (req, res) => {
       amountInvested: principal,
       maturityValue: num(b.maturityValue, null),
       notes: (b.notes && String(b.notes).trim()) || null,
+      nominee: (b.nominee && String(b.nominee).trim()) || old.nominee || null,
       status: 'active',
       renewedFromId: old.id
     };

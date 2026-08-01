@@ -131,11 +131,12 @@ export default function InvestmentDetail() {
               <div className="value">{formatINR(inv.currentValue)}</div>
             </div>
           </div>
-          {inv.notes && (
-            <div className="card">
-              <dl className="kv"><dt>Notes</dt><dd>{inv.notes}</dd></dl>
-            </div>
-          )}
+          <div className="card">
+            <dl className="kv">
+              <dt>Nominee</dt><dd>{inv.nominee || <span className="badge badge-red">Missing</span>}</dd>
+              {inv.notes && <><dt>Notes</dt><dd>{inv.notes}</dd></>}
+            </dl>
+          </div>
         </>
       ) : (
         <>
@@ -165,6 +166,7 @@ export default function InvestmentDetail() {
               <dt>Rate of Interest</dt><dd>{inv.rateOfInterest != null ? `${inv.rateOfInterest}%` : '—'}</dd>
               <dt>Investment Date</dt><dd>{formatDate(inv.investmentDate)}</dd>
               <dt>Maturity Date</dt><dd>{formatDate(inv.maturityDate)}</dd>
+              <dt>Nominee</dt><dd>{inv.nominee || <span className="badge badge-red">Missing</span>}</dd>
               <dt>Notes</dt><dd>{inv.notes || '—'}</dd>
             </dl>
           </div>

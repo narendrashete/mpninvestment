@@ -109,7 +109,6 @@ for (const row of rows) {
     branch && `Branch: ${branch}`,
     acct && `A/C: ${acct}`,
     scheme && `Scheme: ${scheme}`,
-    nominee && `Nominee: ${nominee}`,
     remarks,
     approxDates && 'One or more dates above are approximate (from a handwritten record).'
   ].filter(Boolean).join(' | ') || null;
@@ -130,6 +129,7 @@ for (const row of rows) {
       amountInvested: origAmt,
       maturityValue: origMaturityAmt,
       notes,
+      nominee,
       status: 'renewed',
       renewedOn: renewDate.iso
     };
@@ -145,6 +145,7 @@ for (const row of rows) {
       amountInvested: renewAmt,
       maturityValue: curMaturityAmt,
       notes,
+      nominee,
       renewedFromId: original.id
     };
     original.renewedToId = renewed.id;
@@ -161,7 +162,8 @@ for (const row of rows) {
       maturityDate: curMaturityDate?.iso ?? origMaturityDate?.iso ?? null,
       amountInvested: origAmt,
       maturityValue: curMaturityAmt ?? origMaturityAmt,
-      notes
+      notes,
+      nominee
     });
   }
 }

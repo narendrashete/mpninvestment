@@ -10,7 +10,8 @@ export default function RenewForm({ inv, onClose, onSaved }) {
     investmentDate: inv.maturityDate || new Date().toISOString().slice(0, 10),
     maturityDate: '',
     maturityValue: '',
-    notes: ''
+    notes: '',
+    nominee: inv.nominee ?? ''
   });
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -53,6 +54,9 @@ export default function RenewForm({ inv, onClose, onSaved }) {
             </label>
             <label className="field full">Maturity Value (₹) — entered manually
               <input type="number" step="1" value={form.maturityValue} onChange={set('maturityValue')} />
+            </label>
+            <label className="field">Nominee
+              <input value={form.nominee} onChange={set('nominee')} placeholder="Not confirmed yet" />
             </label>
             <label className="field full">Notes
               <input value={form.notes} onChange={set('notes')} />

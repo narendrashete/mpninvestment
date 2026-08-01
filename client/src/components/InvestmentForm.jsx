@@ -5,7 +5,7 @@ import { TYPE_LABELS } from '../lib/format.js';
 
 const EMPTY = {
   type: 'FD', holder: '', name: '', rateOfInterest: '',
-  investmentDate: '', maturityDate: '', amountInvested: '', maturityValue: '', notes: ''
+  investmentDate: '', maturityDate: '', amountInvested: '', maturityValue: '', notes: '', nominee: ''
 };
 
 // Add/edit modal. `initial` = existing investment to edit, or null to create.
@@ -103,6 +103,9 @@ export default function InvestmentForm({ initial, onClose, onSaved }) {
                 </label>
               </>
             )}
+            <label className="field">Nominee
+              <input value={form.nominee} onChange={set('nominee')} placeholder="Not confirmed yet" />
+            </label>
             <label className="field full">Notes{isBank ? ' (e.g. account number)' : ''}
               <input value={form.notes} onChange={set('notes')} />
             </label>
