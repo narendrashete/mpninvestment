@@ -19,49 +19,53 @@ function kindOf(req, res) {
   return kind;
 }
 
-const usageCount = (field, value) =>
-  db.data.investments.filter(i => i[field] === value).length;
+const usageCount = (group, field, value) =>
+  db.data.investments.filter(i => i.group === group && i[field] === value).length;
 
-function withUsage(kind) {
+function withUsage(group, kind) {
   const { field } = KINDS[kind];
-  return db.data.masters[kind].map(value => ({ value, inUse: usageCount(field, value) }));
+  return db.data.masters[group][kind].map(value => ({ value, inUse: usageCount(group, field, value) }));
 }
 
-// Both lists, each entry with how many investments currently use it.
+// Both lists, each entry with how many investments currently use it — scoped
+// to the logged-in user's group.
 router.get('/', (req, res) => {
+  const group = req.user.group;
   res.json({
-    holders: withUsage('holders'),
-    investmentNames: withUsage('investmentNames')
+    holders: withUsage(group, 'holders'),
+    investmentNames: withUsage(group, 'investmentNames')
   });
 });
 
 router.post('/:kind', async (req, res) => {
   const kind = kindOf(req, res);
   if (!kind) return;
+  const group = req.user.group;
   const value = String(req.body.value ?? '').trim();
   if (!value) return res.status(400).json({ error: `${KINDS[kind].label} cannot be empty` });
-  const before = db.data.masters[kind].length;
-  const stored = ensureMaster(kind, value);
-  if (db.data.masters[kind].length === before) {
+  const before = db.data.masters[group][kind].length;
+  const stored = ensureMaster(group, kind, value);
+  if (db.data.masters[group][kind].length === before) {
     return res.status(409).json({ error: `"${stored}" is already in the list` });
   }
   await db.write();
-  res.status(201).json({ value: stored, list: withUsage(kind) });
+  res.status(201).json({ value: stored, list: withUsage(group, kind) });
 });
 
-// Rename, cascading to every investment using the old value so nothing is
-// orphaned by an edit here.
+// Rename, cascading to every investment in this group using the old value so
+// nothing is orphaned by an edit here.
 router.put('/:kind', async (req, res) => {
   const kind = kindOf(req, res);
   if (!kind) return;
+  const group = req.user.group;
   const from = String(req.body.from ?? '').trim();
   const to = String(req.body.to ?? '').trim();
   if (!to) return res.status(400).json({ error: `${KINDS[kind].label} cannot be empty` });
 
-  const list = db.data.masters[kind];
+  const list = db.data.masters[group][kind];
   const idx = list.indexOf(from);
   if (idx === -1) return res.status(404).json({ error: `"${from}" is not in the list` });
-  if (from === to) return res.json({ value: to, list: withUsage(kind), updated: 0 });
+  if (from === to) return res.json({ value: to, list: withUsage(group, kind), updated: 0 });
 
   const clash = list.find(x => x !== from && x.toLowerCase() === to.toLowerCase());
   if (clash) return res.status(409).json({ error: `"${clash}" is already in the list` });
@@ -69,25 +73,26 @@ router.put('/:kind', async (req, res) => {
   const { field } = KINDS[kind];
   let updated = 0;
   for (const inv of db.data.investments) {
-    if (inv[field] === from) { inv[field] = to; updated++; }
+    if (inv.group === group && inv[field] === from) { inv[field] = to; updated++; }
   }
   list[idx] = to;
   sortMaster(list);
   await db.write();
-  res.json({ value: to, list: withUsage(kind), updated });
+  res.json({ value: to, list: withUsage(group, kind), updated });
 });
 
-// Delete — refused while any investment still uses the value, since holder and
-// name are only ever chosen from these lists.
+// Delete — refused while any investment in this group still uses the value,
+// since holder and name are only ever chosen from these lists.
 router.delete('/:kind', async (req, res) => {
   const kind = kindOf(req, res);
   if (!kind) return;
+  const group = req.user.group;
   const value = String(req.body.value ?? '').trim();
-  const list = db.data.masters[kind];
+  const list = db.data.masters[group][kind];
   const idx = list.indexOf(value);
   if (idx === -1) return res.status(404).json({ error: `"${value}" is not in the list` });
 
-  const used = usageCount(KINDS[kind].field, value);
+  const used = usageCount(group, KINDS[kind].field, value);
   if (used > 0) {
     return res.status(409).json({
       error: `"${value}" is used by ${used} investment${used > 1 ? 's' : ''} — reassign those first.`
@@ -95,7 +100,7 @@ router.delete('/:kind', async (req, res) => {
   }
   list.splice(idx, 1);
   await db.write();
-  res.json({ ok: true, list: withUsage(kind) });
+  res.json({ ok: true, list: withUsage(group, kind) });
 });
 
 export default router;

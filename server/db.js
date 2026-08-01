@@ -10,12 +10,20 @@ mkdirSync(dataDir, { recursive: true });
 
 export const dbFile = join(dataDir, 'db.json');
 
+// Investment groups — each bound to its own login and never merged together
+// anywhere in the app (dashboard, lists, masters). MPN = Mrunal/Narendra/
+// Nivedita (the original data); RPS = Ramchandra & Smita Shete.
+export const GROUPS = ['MPN', 'RPS'];
+
+const emptyMasters = () => ({ holders: [], investmentNames: [] });
+
 const defaultData = {
   investments: [],
   holdings: [],
-  // Pick-lists for the Add/Edit Investment form. Holder and name can only be
-  // chosen from these — new entries are added on the Masters page.
-  masters: { holders: [], investmentNames: [] },
+  // Pick-lists for the Add/Edit Investment form, one per group. Holder and
+  // name can only be chosen from the logged-in user's group list — new
+  // entries are added on the Masters page.
+  masters: { MPN: emptyMasters(), RPS: emptyMasters() },
   settings: { maturityWindowDays: 60, lastPriceRefresh: null }
 };
 
@@ -25,18 +33,31 @@ db.data ||= defaultData;
 db.data.investments ||= [];
 db.data.holdings ||= [];
 db.data.settings ||= defaultData.settings;
-db.data.masters ||= { holders: [], investmentNames: [] };
-db.data.masters.holders ||= [];
-db.data.masters.investmentNames ||= [];
+
+// Migrate the old flat masters shape ({ holders: [], investmentNames: [] })
+// into the MPN group, so pre-existing pick-lists aren't lost when groups were
+// introduced.
+if (Array.isArray(db.data.masters?.holders)) {
+  db.data.masters = {
+    MPN: { holders: db.data.masters.holders, investmentNames: db.data.masters.investmentNames || [] },
+    RPS: emptyMasters()
+  };
+}
+db.data.masters ||= {};
+for (const g of GROUPS) {
+  db.data.masters[g] ||= emptyMasters();
+  db.data.masters[g].holders ||= [];
+  db.data.masters[g].investmentNames ||= [];
+}
 
 export const sortMaster = (list) => list.sort((a, b) => a.localeCompare(b));
 
-// Add a value to a master list if it isn't already there (case-insensitive).
-// Returns the canonical stored value.
-export function ensureMaster(kind, value) {
+// Add a value to a group's master list if it isn't already there
+// (case-insensitive). Returns the canonical stored value.
+export function ensureMaster(group, kind, value) {
   const v = value == null ? '' : String(value).trim();
   if (!v) return null;
-  const list = db.data.masters[kind];
+  const list = db.data.masters[group][kind];
   const existing = list.find(x => x.toLowerCase() === v.toLowerCase());
   if (existing) return existing;
   list.push(v);
@@ -44,14 +65,22 @@ export function ensureMaster(kind, value) {
   return v;
 }
 
+// Every investment must belong to a group — anything pre-existing (from
+// before groups existed) is MPN.
+let changed = false;
+for (const inv of db.data.investments) {
+  if (!inv.group) { inv.group = 'MPN'; changed = true; }
+}
+
 // Back-fill the masters from whatever the investments already use, so existing
 // data keeps working and every current holder/name is selectable.
-const beforeCount = db.data.masters.holders.length + db.data.masters.investmentNames.length;
+const beforeCount = GROUPS.reduce((a, g) => a + db.data.masters[g].holders.length + db.data.masters[g].investmentNames.length, 0);
 for (const inv of db.data.investments) {
-  ensureMaster('holders', inv.holder);
-  ensureMaster('investmentNames', inv.name);
+  ensureMaster(inv.group, 'holders', inv.holder);
+  ensureMaster(inv.group, 'investmentNames', inv.name);
 }
-if (db.data.masters.holders.length + db.data.masters.investmentNames.length !== beforeCount) {
+const afterCount = GROUPS.reduce((a, g) => a + db.data.masters[g].holders.length + db.data.masters[g].investmentNames.length, 0);
+if (changed || beforeCount !== afterCount) {
   await db.write();
 }
 

@@ -1,10 +1,27 @@
 import session from 'express-session';
 import bcrypt from 'bcryptjs';
 
-// Auth only activates once real credentials are configured (AUTH_USERNAME +
-// AUTH_PASSWORD_HASH env vars) — local dev via start.bat has neither, so it
-// behaves exactly as before: no login screen, no friction.
-const AUTH_ENABLED = Boolean(process.env.AUTH_USERNAME && process.env.AUTH_PASSWORD_HASH);
+// Multiple users, each bound to one investment group. User 1 is
+// AUTH_USERNAME/AUTH_PASSWORD_HASH/AUTH_GROUP (AUTH_GROUP defaults to 'MPN' so
+// the original single-admin .env keeps working untouched); additional users
+// are AUTH_USERNAME_2/AUTH_PASSWORD_HASH_2/AUTH_GROUP_2, _3, etc.
+function loadUsers() {
+  const users = [];
+  for (let i = 1; ; i++) {
+    const suffix = i === 1 ? '' : `_${i}`;
+    const username = process.env[`AUTH_USERNAME${suffix}`];
+    const passwordHash = process.env[`AUTH_PASSWORD_HASH${suffix}`];
+    if (!username || !passwordHash) break;
+    const group = process.env[`AUTH_GROUP${suffix}`] || 'MPN';
+    users.push({ username, passwordHash, group });
+  }
+  return users;
+}
+
+const USERS = loadUsers();
+// Auth only activates once at least one user is configured — local dev via
+// start.bat previously had none, so it behaved with no login screen.
+const AUTH_ENABLED = USERS.length > 0;
 
 export function sessionMiddleware() {
   return session({
@@ -50,11 +67,10 @@ export function loginPage(req, res) {
 
 export async function handleLogin(req, res) {
   const { username, password } = req.body || {};
-  const ok = username === process.env.AUTH_USERNAME
-    && password
-    && await bcrypt.compare(password, process.env.AUTH_PASSWORD_HASH);
+  const user = USERS.find(u => u.username === username);
+  const ok = user && password && await bcrypt.compare(password, user.passwordHash);
   if (ok) {
-    req.session.authenticated = true;
+    req.session.user = { username: user.username, group: user.group };
     return res.redirect('/');
   }
   res.status(401).send(loginHtml('Invalid username or password'));
@@ -65,8 +81,13 @@ export function handleLogout(req, res) {
 }
 
 export function requireAuth(req, res, next) {
-  if (!AUTH_ENABLED) return next();
-  if (req.session?.authenticated) return next();
+  if (!AUTH_ENABLED) { req.user = { username: 'local', group: 'MPN' }; return next(); }
+  if (req.session?.user) { req.user = req.session.user; return next(); }
   if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Not authenticated' });
   return res.redirect('/login');
+}
+
+// Who's logged in — lets the frontend show the current user/group.
+export function whoami(req, res) {
+  res.json(req.user || null);
 }

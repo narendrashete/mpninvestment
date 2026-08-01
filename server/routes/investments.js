@@ -8,14 +8,14 @@ const TYPES = ['FD', 'SHARES', 'BANK_SHARES', 'BANK_BALANCE'];
 
 // Holder and name are chosen from the masters — resolve to the stored spelling
 // and reject anything not on the list (new entries are added on Masters).
-function fromMaster(kind, value, label) {
+function fromMaster(group, kind, value, label) {
   const v = String(value).trim();
-  const match = db.data.masters[kind].find(x => x.toLowerCase() === v.toLowerCase());
+  const match = db.data.masters[group][kind].find(x => x.toLowerCase() === v.toLowerCase());
   if (!match) throw new Error(`${label} "${v}" is not in the master list — add it on the Masters page first.`);
   return match;
 }
 
-function sanitize(body, existing = {}) {
+function sanitize(group, body, existing = {}) {
   const inv = { ...existing };
   if (body.type !== undefined) {
     if (!TYPES.includes(body.type)) throw new Error(`type must be one of ${TYPES.join(', ')}`);
@@ -23,11 +23,11 @@ function sanitize(body, existing = {}) {
   }
   if (body.holder !== undefined) {
     inv.holder = body.holder === '' || body.holder == null
-      ? null : fromMaster('holders', body.holder, 'Holder');
+      ? null : fromMaster(group, 'holders', body.holder, 'Holder');
   }
   if (body.name !== undefined) {
     inv.name = body.name === '' || body.name == null
-      ? null : fromMaster('investmentNames', body.name, 'Investment name');
+      ? null : fromMaster(group, 'investmentNames', body.name, 'Investment name');
   }
   if (body.notes !== undefined) {
     inv.notes = body.notes === '' ? null : String(body.notes).trim();
@@ -47,7 +47,8 @@ function sanitize(body, existing = {}) {
 
 // List, enriched with computed values/ROI. Optional ?type= & ?holder= filters.
 router.get('/', (req, res) => {
-  let list = db.data.investments.map(i => enrich(i, db.data.holdings));
+  const group = req.user.group;
+  let list = db.data.investments.filter(i => i.group === group).map(i => enrich(i, db.data.holdings));
   if (req.query.type) list = list.filter(i => i.type === req.query.type);
   if (req.query.holder) list = list.filter(i => i.holder === req.query.holder);
   res.json(list);
@@ -55,10 +56,14 @@ router.get('/', (req, res) => {
 
 // Dashboard aggregate: summaries, maturing-soon, best/worst.
 router.get('/dashboard', (req, res) => {
+  const group = req.user.group;
   const windowDays = Number(req.query.windowDays) || db.data.settings.maturityWindowDays || 60;
   // Closed (redeemed/renewed) instruments are records only — keep them out of
   // every live aggregate so money isn't counted in both the old FD and where it went.
-  const enriched = db.data.investments.map(i => enrich(i, db.data.holdings)).filter(i => !i.closed);
+  const enriched = db.data.investments
+    .filter(i => i.group === group)
+    .map(i => enrich(i, db.data.holdings))
+    .filter(i => !i.closed);
 
   const totalInvested = enriched.reduce((a, i) => a + (i.amountInvested || 0), 0);
   const totalValue = enriched.reduce((a, i) => a + (i.currentValue || 0), 0);
@@ -98,8 +103,9 @@ router.get('/dashboard', (req, res) => {
 // totals and reported here instead, with the linked record resolved so the
 // figures can be shown without a second round-trip per row.
 router.get('/closed', (req, res) => {
+  const group = req.user.group;
   const brief = (id) => {
-    const x = id && db.data.investments.find(i => i.id === id);
+    const x = id && db.data.investments.find(i => i.id === id && i.group === group);
     if (!x) return null;
     return {
       id: x.id, type: x.type, name: x.name, holder: x.holder,
@@ -110,6 +116,7 @@ router.get('/closed', (req, res) => {
   };
 
   const closed = db.data.investments
+    .filter(i => i.group === group)
     .map(i => enrich(i, db.data.holdings))
     .filter(i => i.closed);
 
@@ -142,7 +149,7 @@ router.get('/closed', (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
-  const inv = db.data.investments.find(i => i.id === req.params.id);
+  const inv = db.data.investments.find(i => i.id === req.params.id && i.group === req.user.group);
   if (!inv) return res.status(404).json({ error: 'Investment not found' });
   const enriched = enrich(inv, db.data.holdings);
   enriched.holdings = db.data.holdings.filter(h => h.investmentId === inv.id);
@@ -151,10 +158,12 @@ router.get('/:id', (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const inv = sanitize(req.body);
+    const group = req.user.group;
+    const inv = sanitize(group, req.body);
     if (!inv.type) return res.status(400).json({ error: 'type is required' });
     if (!inv.name) return res.status(400).json({ error: 'name is required' });
     inv.id = newId('inv');
+    inv.group = group;
     db.data.investments.push(inv);
     await db.write();
     res.status(201).json(enrich(inv, db.data.holdings));
@@ -164,11 +173,13 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const idx = db.data.investments.findIndex(i => i.id === req.params.id);
+  const group = req.user.group;
+  const idx = db.data.investments.findIndex(i => i.id === req.params.id && i.group === group);
   if (idx === -1) return res.status(404).json({ error: 'Investment not found' });
   try {
-    const updated = sanitize(req.body, db.data.investments[idx]);
+    const updated = sanitize(group, req.body, db.data.investments[idx]);
     updated.id = req.params.id;
+    updated.group = group;
     db.data.investments[idx] = updated;
     await db.write();
     res.json(enrich(updated, db.data.holdings));
@@ -178,7 +189,7 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  const idx = db.data.investments.findIndex(i => i.id === req.params.id);
+  const idx = db.data.investments.findIndex(i => i.id === req.params.id && i.group === req.user.group);
   if (idx === -1) return res.status(404).json({ error: 'Investment not found' });
   db.data.investments.splice(idx, 1);
   db.data.holdings = db.data.holdings.filter(h => h.investmentId !== req.params.id);
@@ -198,7 +209,8 @@ function assertOpen(inv, res) {
 // Redeem a matured FD/Bank-Share: close it and (optionally) credit the proceeds
 // to a Bank Balance account, which is bumped by the redeemed amount.
 router.post('/:id/redeem', async (req, res) => {
-  const inv = db.data.investments.find(i => i.id === req.params.id);
+  const group = req.user.group;
+  const inv = db.data.investments.find(i => i.id === req.params.id && i.group === group);
   if (!inv) return res.status(404).json({ error: 'Investment not found' });
   if (!REDEEMABLE.includes(inv.type)) return res.status(400).json({ error: 'Only FDs and Bank Shares can be redeemed.' });
   if (!assertOpen(inv, res)) return;
@@ -211,7 +223,7 @@ router.post('/:id/redeem', async (req, res) => {
 
   let account = null;
   if (toAccountId) {
-    account = db.data.investments.find(i => i.id === toAccountId);
+    account = db.data.investments.find(i => i.id === toAccountId && i.group === group);
     if (!account) return res.status(400).json({ error: 'Target bank account does not exist' });
     if (account.type !== 'BANK_BALANCE') return res.status(400).json({ error: 'Proceeds can only be credited to a Bank Balance account' });
     account.amountInvested = (account.amountInvested || 0) + amount;
@@ -232,7 +244,8 @@ router.post('/:id/redeem', async (req, res) => {
 // Renew an FD: close the old one and create a fresh FD (its own record), with a
 // link between the two so the renewal chain is kept separately.
 router.post('/:id/renew', async (req, res) => {
-  const old = db.data.investments.find(i => i.id === req.params.id);
+  const group = req.user.group;
+  const old = db.data.investments.find(i => i.id === req.params.id && i.group === group);
   if (!old) return res.status(404).json({ error: 'Investment not found' });
   if (old.type !== 'FD') return res.status(400).json({ error: 'Only FDs can be renewed.' });
   if (!assertOpen(old, res)) return;
@@ -247,9 +260,10 @@ router.post('/:id/renew', async (req, res) => {
     const renewed = {
       id: newId('inv'),
       type: 'FD',
+      group,
       holder: old.holder ?? null,
       name: b.name && String(b.name).trim()
-        ? fromMaster('investmentNames', b.name, 'Investment name')
+        ? fromMaster(group, 'investmentNames', b.name, 'Investment name')
         : old.name,
       rateOfInterest: num(b.rateOfInterest, old.rateOfInterest ?? null),
       investmentDate: start,

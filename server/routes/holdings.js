@@ -21,7 +21,7 @@ async function fetchPrice(holding) {
 
 router.post('/', async (req, res) => {
   const { investmentId, kind, schemeCode, symbol, displayName, units, investedAmount, lastPrice, lastPriceDate, isin } = req.body;
-  const parent = db.data.investments.find(i => i.id === investmentId);
+  const parent = db.data.investments.find(i => i.id === investmentId && i.group === req.user.group);
   if (!parent) return res.status(400).json({ error: 'investmentId does not exist' });
   if (parent.type !== 'SHARES') return res.status(400).json({ error: 'Holdings can only be added to SHARES investments' });
   if (!['MF', 'STOCK', 'OTHER'].includes(kind)) return res.status(400).json({ error: 'kind must be MF, STOCK or OTHER' });
@@ -72,8 +72,15 @@ router.post('/', async (req, res) => {
   res.status(201).json(holding);
 });
 
-router.put('/:id', async (req, res) => {
+function findHoldingInGroup(req) {
   const holding = db.data.holdings.find(h => h.id === req.params.id);
+  if (!holding) return null;
+  const parent = db.data.investments.find(i => i.id === holding.investmentId && i.group === req.user.group);
+  return parent ? holding : null;
+}
+
+router.put('/:id', async (req, res) => {
+  const holding = findHoldingInGroup(req);
   if (!holding) return res.status(404).json({ error: 'Holding not found' });
   const { units, investedAmount, displayName, isin } = req.body;
   if (units !== undefined) {
@@ -89,8 +96,9 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  const idx = db.data.holdings.findIndex(h => h.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Holding not found' });
+  const holding = findHoldingInGroup(req);
+  if (!holding) return res.status(404).json({ error: 'Holding not found' });
+  const idx = db.data.holdings.findIndex(h => h.id === holding.id);
   db.data.holdings.splice(idx, 1);
   await db.write();
   res.json({ ok: true });

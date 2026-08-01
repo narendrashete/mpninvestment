@@ -8,7 +8,7 @@ import holdings from './routes/holdings.js';
 import prices from './routes/prices.js';
 import settings from './routes/settings.js';
 import masters from './routes/masters.js';
-import { sessionMiddleware, requireAuth, loginPage, handleLogin, handleLogout } from './middleware/auth.js';
+import { sessionMiddleware, requireAuth, loginPage, handleLogin, handleLogout, whoami } from './middleware/auth.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -24,6 +24,8 @@ app.post('/login', handleLogin);
 app.post('/api/auth/logout', handleLogout);
 
 app.use(requireAuth);
+
+app.get('/api/auth/me', whoami);
 
 app.use('/api/investments', investments);
 app.use('/api/holdings', holdings);
