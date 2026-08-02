@@ -324,7 +324,7 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; 
 
   /* ---- Data tables become stacked cards: zero horizontal scroll ---- */
   .table-cards { overflow-x: visible; }
-  .table-cards table { display: block; width: 100%; }
+  .table-cards table { display: block; width: 100%; min-width: 0; }
   .table-cards thead { display: none; }
   .table-cards tbody, .table-cards tfoot { display: block; }
   .table-cards tr {
@@ -338,6 +338,7 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; 
   .table-cards tr.clickable:active { background: #f1f5f9; }
   .table-cards td {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     gap: 14px;
@@ -347,6 +348,8 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; 
     text-align: right;
     font-size: 15px;
   }
+  .table-cards td > * { min-width: 0; }
+  .table-cards .badge { white-space: normal; max-width: 100%; }
   .table-cards td:last-child { border-bottom: none; }
   .table-cards td::before {
     content: attr(data-label);
