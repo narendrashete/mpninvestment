@@ -79,6 +79,7 @@ function loginHtml(error) {
 }
 
 export function loginPage(req, res) {
+  res.set('Cache-Control', 'no-store');
   res.send(loginHtml());
 }
 

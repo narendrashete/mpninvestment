@@ -33,12 +33,17 @@ app.use('/api/prices', prices);
 app.use('/api/settings', settings);
 app.use('/api/masters', masters);
 
-// Serve the built client when available (production / start.bat)
+// Serve the built client when available (production / start.bat).
+// Vite content-hashes filenames under /assets, so those are safe to cache
+// forever — but index.html references those hashes by name, so it must
+// never be cached or a phone/browser can keep loading a stale bundle
+// indefinitely after a deploy.
 const clientDist = join(__dirname, '..', 'client', 'dist');
 if (existsSync(clientDist)) {
-  app.use(express.static(clientDist));
+  app.use(express.static(clientDist, { index: false, maxAge: '1y', immutable: true }));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api/')) return next();
+    res.set('Cache-Control', 'no-store');
     res.sendFile(join(clientDist, 'index.html'));
   });
 }
