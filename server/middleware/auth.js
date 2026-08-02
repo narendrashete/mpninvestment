@@ -39,20 +39,37 @@ function loginHtml(error) {
 <title>Sign in — InvestTrack</title>
 <style>
   * { box-sizing: border-box; }
+  html, body { overflow-x: hidden; }
   body { font-family: system-ui, sans-serif; background: #f4f6fa; display: flex; align-items: center;
          justify-content: center; min-height: 100vh; margin: 0; padding: 16px; }
   form { background: #fff; padding: 32px 36px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.1);
          width: 100%; max-width: 320px; }
-  h1 { font-size: 18px; margin: 0 0 20px; }
+  .badge-icon { width: 52px; height: 52px; border-radius: 50%; background: #eff6ff; color: #2563eb;
+                display: flex; align-items: center; justify-content: center; font-size: 24px;
+                font-weight: 700; margin: 0 auto 16px; }
+  h1 { font-size: 18px; margin: 0 0 20px; text-align: center; }
   input { width: 100%; padding: 11px 12px; margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 8px;
           font-size: 16px; box-sizing: border-box; }
   button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 8px;
            font-size: 15px; cursor: pointer; }
   .err { color: #dc2626; font-size: 13px; margin: -6px 0 12px; }
+
+  /* Phones: fill more of the screen, bigger everything, feels app-like */
+  @media (max-width: 480px) {
+    body { padding: 0; align-items: stretch; }
+    form { max-width: none; width: 100%; min-height: 100vh; border-radius: 0; box-shadow: none;
+           display: flex; flex-direction: column; justify-content: center; padding: 32px 28px; }
+    .badge-icon { width: 64px; height: 64px; font-size: 30px; margin-bottom: 20px; }
+    h1 { font-size: 26px; margin-bottom: 32px; }
+    input { padding: 15px 14px; margin-bottom: 16px; font-size: 17px; border-radius: 10px; }
+    button { padding: 16px; font-size: 17px; font-weight: 600; border-radius: 10px; }
+    .err { font-size: 14px; margin: -8px 0 14px; }
+  }
 </style></head>
 <body>
   <form method="POST" action="/login">
-    <h1>₹ InvestTrack</h1>
+    <div class="badge-icon">₹</div>
+    <h1>InvestTrack</h1>
     ${error ? `<div class="err">${error}</div>` : ''}
     <input name="username" placeholder="Username" autofocus required />
     <input name="password" type="password" placeholder="Password" required />

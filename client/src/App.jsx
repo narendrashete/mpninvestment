@@ -6,6 +6,13 @@ import InvestmentDetail from './pages/InvestmentDetail.jsx';
 import Closed from './pages/Closed.jsx';
 import Masters from './pages/Masters.jsx';
 
+const NAV_ITEMS = [
+  { to: '/', end: true, label: 'Dashboard', shortLabel: 'Dashboard', icon: '⌂' },
+  { to: '/investments', label: 'Investments', shortLabel: 'Investments', icon: '☰' },
+  { to: '/closed', label: 'Redeemed / Renewed', shortLabel: 'Redeemed', icon: '↺' },
+  { to: '/masters', label: 'Masters', shortLabel: 'Masters', icon: '⚙' },
+];
+
 export default function App() {
   const [me, setMe] = useState(null);
 
@@ -18,10 +25,9 @@ export default function App() {
       <header className="topbar">
         <div className="brand">₹ Invest<span>Track</span></div>
         <nav>
-          <NavLink to="/" end>Dashboard</NavLink>
-          <NavLink to="/investments">Investments</NavLink>
-          <NavLink to="/closed">Redeemed / Renewed</NavLink>
-          <NavLink to="/masters">Masters</NavLink>
+          {NAV_ITEMS.map(item => (
+            <NavLink key={item.to} to={item.to} end={item.end}>{item.label}</NavLink>
+          ))}
         </nav>
         {me && (
           <span className="muted" style={{ fontSize: 13, marginRight: 12 }}>
@@ -41,6 +47,14 @@ export default function App() {
           <Route path="/masters" element={<Masters />} />
         </Routes>
       </main>
+      <nav className="bottom-nav">
+        {NAV_ITEMS.map(item => (
+          <NavLink key={item.to} to={item.to} end={item.end}>
+            <span className="icon">{item.icon}</span>
+            {item.shortLabel}
+          </NavLink>
+        ))}
+      </nav>
     </>
   );
 }

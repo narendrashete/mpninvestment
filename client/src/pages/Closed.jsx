@@ -144,7 +144,7 @@ export default function Closed() {
         )}
       </div>
 
-      <div className="card" style={{ padding: 0 }}>
+      <div className="card table-cards" style={{ padding: 0 }}>
         {rows.length === 0 ? (
           <p className="empty">Nothing {tab} yet.</p>
         ) : (
@@ -163,15 +163,15 @@ export default function Closed() {
                 const linked = tab === 'redeemed' ? inv.creditedTo : inv.renewedInto;
                 return (
                   <tr key={inv.id} className="clickable" onClick={() => setDetail(inv)}>
-                    <td><span className="badge badge-type">{typeLabel(inv.type)}</span></td>
-                    <td>{inv.holder || '—'}</td>
-                    <td><strong>{inv.name}</strong></td>
-                    <td>{formatDate(tab === 'redeemed' ? inv.redeemedOn : inv.renewedOn)}</td>
-                    <td className="num">{formatINR(inv.amountInvested)}</td>
-                    <td className="num">
+                    <td data-label="Type"><span className="badge badge-type">{typeLabel(inv.type)}</span></td>
+                    <td data-label="Holder">{inv.holder || '—'}</td>
+                    <td data-label="Name"><strong>{inv.name}</strong></td>
+                    <td data-label={tab === 'redeemed' ? 'Redeemed On' : 'Renewed On'}>{formatDate(tab === 'redeemed' ? inv.redeemedOn : inv.renewedOn)}</td>
+                    <td className="num" data-label="Invested">{formatINR(inv.amountInvested)}</td>
+                    <td className="num" data-label={tab === 'redeemed' ? 'Received' : 'New Principal'}>
                       {formatINR(tab === 'redeemed' ? inv.redeemedAmount : linked?.amountInvested)}
                     </td>
-                    <td>{linked ? linked.name : <span className="muted">—</span>}</td>
+                    <td data-label={tab === 'redeemed' ? 'Credited To' : 'Renewed Into'}>{linked ? linked.name : <span className="muted">—</span>}</td>
                   </tr>
                 );
               })}

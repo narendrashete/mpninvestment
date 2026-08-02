@@ -54,48 +54,50 @@ function MasterList({ kind, title, placeholder, entries, onChanged, onError }) {
         <button type="submit" className="btn btn-primary" disabled={busy || !adding.trim()}>Add</button>
       </form>
 
-      <table>
-        <thead><tr><th>{title.replace(/s$/, '')}</th><th className="num">Used by</th><th></th></tr></thead>
-        <tbody>
-          {entries.map(({ value, inUse }) => (
-            <tr key={value}>
-              {editing?.from === value ? (
-                <td colSpan={3}>
-                  <form onSubmit={saveRename} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <input
-                      value={editing.to}
-                      onChange={e => setEditing(s => ({ ...s, to: e.target.value }))}
-                      autoFocus
-                      style={{ flex: 1, minWidth: 140 }}
-                    />
-                    <button type="submit" className="btn btn-sm btn-primary" disabled={busy}>Save</button>
-                    <button type="button" className="btn btn-sm" onClick={() => setEditing(null)}>Cancel</button>
-                  </form>
-                </td>
-              ) : (
-                <>
-                  <td><strong>{value}</strong></td>
-                  <td className="num">
-                    {inUse > 0
-                      ? <span className="badge badge-type">{inUse}</span>
-                      : <span className="muted">—</span>}
+      <div className="table-cards">
+        <table>
+          <thead><tr><th>{title.replace(/s$/, '')}</th><th className="num">Used by</th><th></th></tr></thead>
+          <tbody>
+            {entries.map(({ value, inUse }) => (
+              <tr key={value}>
+                {editing?.from === value ? (
+                  <td colSpan={3} data-label="">
+                    <form onSubmit={saveRename} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <input
+                        value={editing.to}
+                        onChange={e => setEditing(s => ({ ...s, to: e.target.value }))}
+                        autoFocus
+                        style={{ flex: 1, minWidth: 140 }}
+                      />
+                      <button type="submit" className="btn btn-sm btn-primary" disabled={busy}>Save</button>
+                      <button type="button" className="btn btn-sm" onClick={() => setEditing(null)}>Cancel</button>
+                    </form>
                   </td>
-                  <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
-                    <button className="btn btn-sm" onClick={() => setEditing({ from: value, to: value })}>Rename</button>{' '}
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => remove(value)}
-                      disabled={inUse > 0}
-                      title={inUse > 0 ? 'In use — reassign those investments first' : 'Remove'}
-                    >✕</button>
-                  </td>
-                </>
-              )}
-            </tr>
-          ))}
-          {entries.length === 0 && <tr><td colSpan={3} className="empty">Nothing here yet.</td></tr>}
-        </tbody>
-      </table>
+                ) : (
+                  <>
+                    <td data-label={title.replace(/s$/, '')}><strong>{value}</strong></td>
+                    <td className="num" data-label="Used by">
+                      {inUse > 0
+                        ? <span className="badge badge-type">{inUse}</span>
+                        : <span className="muted">—</span>}
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }} data-label="">
+                      <button className="btn btn-sm" onClick={() => setEditing({ from: value, to: value })}>Rename</button>{' '}
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => remove(value)}
+                        disabled={inUse > 0}
+                        title={inUse > 0 ? 'In use — reassign those investments first' : 'Remove'}
+                      >✕</button>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+            {entries.length === 0 && <tr><td colSpan={3} className="empty">Nothing here yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

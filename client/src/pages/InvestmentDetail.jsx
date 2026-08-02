@@ -187,7 +187,7 @@ export default function InvestmentDetail() {
             </div>
           </div>
 
-          <div className="card" style={{ padding: 0 }}>
+          <div className="card table-cards" style={{ padding: 0 }}>
             {inv.holdings.length === 0 ? (
               <p className="empty">
                 No live holdings yet — the manual current value ({formatINR(inv.maturityValue)}) is used.<br />
@@ -208,20 +208,20 @@ export default function InvestmentDetail() {
                     const hGain = h.investedAmount ? value - h.investedAmount : null;
                     return (
                       <tr key={h.id}>
-                        <td>
+                        <td data-label="Scheme / Stock">
                           <strong>{h.displayName || h.symbol || h.schemeCode}</strong>
                           <div className="muted" style={{ fontSize: 12 }}>
                             {h.kind === 'MF' ? `AMFI code ${h.schemeCode}` : h.symbol}
                             {h.isin ? ` · ISIN ${h.isin}` : ''}
                           </div>
                         </td>
-                        <td className="num">{h.units}</td>
-                        <td className="num">{h.lastPrice != null ? h.lastPrice.toLocaleString('en-IN', { maximumFractionDigits: 4 }) : '—'}</td>
-                        <td>{formatDate(h.lastPriceDate)}</td>
-                        <td className="num"><strong>{formatINR(value)}</strong></td>
-                        <td className="num">{formatINR(h.investedAmount)}</td>
-                        <td className={`num ${hGain == null ? '' : hGain >= 0 ? 'pos' : 'neg'}`}>{formatINR(hGain)}</td>
-                        <td style={{ whiteSpace: 'nowrap' }}>
+                        <td className="num" data-label="Units">{h.units}</td>
+                        <td className="num" data-label="Last Price/NAV">{h.lastPrice != null ? h.lastPrice.toLocaleString('en-IN', { maximumFractionDigits: 4 }) : '—'}</td>
+                        <td data-label="As Of">{formatDate(h.lastPriceDate)}</td>
+                        <td className="num" data-label="Value"><strong>{formatINR(value)}</strong></td>
+                        <td className="num" data-label="Invested">{formatINR(h.investedAmount)}</td>
+                        <td className={`num ${hGain == null ? '' : hGain >= 0 ? 'pos' : 'neg'}`} data-label="Gain">{formatINR(hGain)}</td>
+                        <td style={{ whiteSpace: 'nowrap' }} data-label="">
                           <button className="btn btn-sm" onClick={() => editUnits(h)}>Units</button>{' '}
                           <button className="btn btn-sm btn-danger" onClick={() => delHolding(h)}>✕</button>
                         </td>

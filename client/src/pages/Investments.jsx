@@ -72,7 +72,7 @@ export default function Investments() {
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Add Investment</button>
       </div>
 
-      <div className="card" style={{ padding: 0 }}>
+      <div className="card table-cards" style={{ padding: 0 }}>
         <table>
           <thead>
             <tr>
@@ -84,26 +84,26 @@ export default function Investments() {
           <tbody>
             {filtered.map(inv => (
               <tr key={inv.id} className="clickable" onClick={() => navigate(`/investments/${inv.id}`)}>
-                <td><span className="badge badge-type">{typeLabel(inv.type)}</span></td>
-                <td>{inv.holder || '—'}</td>
-                <td>
+                <td data-label="Type"><span className="badge badge-type">{typeLabel(inv.type)}</span></td>
+                <td data-label="Holder">{inv.holder || '—'}</td>
+                <td data-label="Name">
                   <strong>{inv.name}</strong>
                   {inv.hasLiveHoldings &&<span className="muted" style={{ fontSize: 12 }}> · {inv.holdingsCount} live holding{inv.holdingsCount > 1 ? 's' : ''}</span>}
                 </td>
-                <td>
+                <td data-label="Nominee">
                   {inv.nominee || <span className="badge badge-red">Missing</span>}
                 </td>
-                <td className="num">{inv.rateOfInterest ?? '—'}</td>
-                <td>{formatDate(inv.investmentDate)}</td>
-                <td>{formatDate(inv.maturityDate)}</td>
-                <td>
+                <td className="num" data-label="Rate %">{inv.rateOfInterest ?? '—'}</td>
+                <td data-label="Invested On">{formatDate(inv.investmentDate)}</td>
+                <td data-label="Maturity">{formatDate(inv.maturityDate)}</td>
+                <td data-label="Due">
                   {inv.daysToMaturity != null && inv.type !== 'BANK_BALANCE'
                     ? <span className={`badge ${daysLeftClass(inv.daysToMaturity)}`}>{daysLeftLabel(inv.daysToMaturity)}</span>
                     : '—'}
                 </td>
-                <td className="num">{formatINR(inv.amountInvested)}</td>
-                <td className="num">{formatINR(inv.currentValue)}</td>
-                <td className={`num ${inv.roi == null ? '' : inv.roi >= 0 ? 'pos' : 'neg'}`}>
+                <td className="num" data-label="Invested">{formatINR(inv.amountInvested)}</td>
+                <td className="num" data-label="Value">{formatINR(inv.currentValue)}</td>
+                <td className={`num ${inv.roi == null ? '' : inv.roi >= 0 ? 'pos' : 'neg'}`} data-label="ROI">
                   {formatPct(inv.roi)}{inv.roiIsAnnualized ? <span className="muted"> p.a.</span> : ''}
                 </td>
               </tr>

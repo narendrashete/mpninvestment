@@ -41,13 +41,13 @@ function MaturityRow({ inv }) {
   const navigate = useNavigate();
   return (
     <tr className="clickable" onClick={() => navigate(`/investments/${inv.id}`)}>
-      <td>
+      <td data-label="Instrument">
         <strong>{inv.name}</strong>
         <div className="muted" style={{ fontSize: 12.5 }}>{typeLabel(inv.type)} · {inv.holder}</div>
       </td>
-      <td>{formatDate(inv.maturityDate)}</td>
-      <td><span className={`badge ${daysLeftClass(inv.daysToMaturity)}`}>{daysLeftLabel(inv.daysToMaturity)}</span></td>
-      <td className="num">{formatINR(inv.currentValue)}</td>
+      <td data-label="Maturity">{formatDate(inv.maturityDate)}</td>
+      <td data-label="Due"><span className={`badge ${daysLeftClass(inv.daysToMaturity)}`}>{daysLeftLabel(inv.daysToMaturity)}</span></td>
+      <td className="num" data-label="Maturity Value">{formatINR(inv.currentValue)}</td>
     </tr>
   );
 }
@@ -60,25 +60,25 @@ function HolderBreakdownModal({ holder, onClose }) {
           <h2 style={{ margin: 0 }}>{holder.holder}</h2>
           <button type="button" className="btn btn-sm" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-cards" style={{ overflowX: 'auto' }}>
           <table>
             <thead><tr><th>Category</th><th className="num">Invested</th><th className="num">Value</th><th className="num">ROI</th></tr></thead>
             <tbody>
               {holder.categories.map(c => (
                 <tr key={c.type}>
-                  <td>{typeLabel(c.type)} <span className="muted">({c.count})</span></td>
-                  <td className="num">{formatINR(c.invested)}</td>
-                  <td className="num">{formatINR(c.value)}</td>
-                  <td className={`num ${c.simpleReturn >= 0 ? 'pos' : 'neg'}`}>{formatPct(c.simpleReturn)}</td>
+                  <td data-label="Category">{typeLabel(c.type)} <span className="muted">({c.count})</span></td>
+                  <td className="num" data-label="Invested">{formatINR(c.invested)}</td>
+                  <td className="num" data-label="Value">{formatINR(c.value)}</td>
+                  <td className={`num ${c.simpleReturn >= 0 ? 'pos' : 'neg'}`} data-label="ROI">{formatPct(c.simpleReturn)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr style={{ fontWeight: 700 }}>
-                <td>Total ({holder.count})</td>
-                <td className="num">{formatINR(holder.invested)}</td>
-                <td className="num">{formatINR(holder.value)}</td>
-                <td className={`num ${holder.simpleReturn >= 0 ? 'pos' : 'neg'}`}>{formatPct(holder.simpleReturn)}</td>
+                <td data-label="Total">Total ({holder.count})</td>
+                <td className="num" data-label="Invested">{formatINR(holder.invested)}</td>
+                <td className="num" data-label="Value">{formatINR(holder.value)}</td>
+                <td className={`num ${holder.simpleReturn >= 0 ? 'pos' : 'neg'}`} data-label="ROI">{formatPct(holder.simpleReturn)}</td>
               </tr>
             </tfoot>
           </table>
@@ -93,12 +93,12 @@ function PerformerRow({ inv }) {
   const cls = inv.roi >= 0 ? 'pos' : 'neg';
   return (
     <tr className="clickable" onClick={() => navigate(`/investments/${inv.id}`)}>
-      <td>
+      <td data-label="Instrument">
         <strong>{inv.name}</strong>
         <div className="muted" style={{ fontSize: 12.5 }}>{typeLabel(inv.type)} · {inv.holder}</div>
       </td>
-      <td className="num">{formatINR(inv.amountInvested)}</td>
-      <td className={`num ${cls}`}>
+      <td className="num" data-label="Invested">{formatINR(inv.amountInvested)}</td>
+      <td className={`num ${cls}`} data-label="ROI">
         {formatPct(inv.roi)}{inv.roiIsAnnualized ? <span className="muted"> p.a.</span> : ''}
       </td>
     </tr>
@@ -225,18 +225,22 @@ export default function Dashboard() {
           {maturingSoon.length === 0
             ? <p className="empty">Nothing maturing in the next {windowDays ?? data.windowDays} days.</p>
             : (
-              <table>
-                <thead><tr><th>Instrument</th><th>Maturity</th><th>Due</th><th className="num">Maturity Value</th></tr></thead>
-                <tbody>{maturingSoon.map(i => <MaturityRow key={i.id} inv={i} />)}</tbody>
-              </table>
+              <div className="table-cards">
+                <table>
+                  <thead><tr><th>Instrument</th><th>Maturity</th><th>Due</th><th className="num">Maturity Value</th></tr></thead>
+                  <tbody>{maturingSoon.map(i => <MaturityRow key={i.id} inv={i} />)}</tbody>
+                </table>
+              </div>
             )}
 
           {overdue.length > 0 && (
             <>
               <h3 style={{ marginTop: 20 }}>Matured / Overdue</h3>
-              <table>
-                <tbody>{overdue.map(i => <MaturityRow key={i.id} inv={i} />)}</tbody>
-              </table>
+              <div className="table-cards">
+                <table>
+                  <tbody>{overdue.map(i => <MaturityRow key={i.id} inv={i} />)}</tbody>
+                </table>
+              </div>
             </>
           )}
         </div>
@@ -244,30 +248,36 @@ export default function Dashboard() {
         <div style={{ display: 'grid', gap: 16 }}>
           <div className="card">
             <h3>ROI by Category</h3>
-            <table>
-              <thead><tr><th>Category</th><th className="num">Invested</th><th className="num">Value</th><th className="num">ROI</th></tr></thead>
-              <tbody>
-                {byCategory.map(c => (
-                  <tr key={c.type}>
-                    <td>{typeLabel(c.type)} <span className="muted">({c.count})</span></td>
-                    <td className="num">{formatINR(c.invested)}</td>
-                    <td className="num">{formatINR(c.value)}</td>
-                    <td className={`num ${c.simpleReturn >= 0 ? 'pos' : 'neg'}`}>{formatPct(c.simpleReturn)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="table-cards">
+              <table>
+                <thead><tr><th>Category</th><th className="num">Invested</th><th className="num">Value</th><th className="num">ROI</th></tr></thead>
+                <tbody>
+                  {byCategory.map(c => (
+                    <tr key={c.type}>
+                      <td data-label="Category">{typeLabel(c.type)} <span className="muted">({c.count})</span></td>
+                      <td className="num" data-label="Invested">{formatINR(c.invested)}</td>
+                      <td className="num" data-label="Value">{formatINR(c.value)}</td>
+                      <td className={`num ${c.simpleReturn >= 0 ? 'pos' : 'neg'}`} data-label="ROI">{formatPct(c.simpleReturn)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="card">
             <h3>Best Performers <span className="muted" style={{ textTransform: 'none' }}>(annualized where dated)</span></h3>
-            <table>
-              <tbody>{best.map(i => <PerformerRow key={i.id} inv={i} />)}</tbody>
-            </table>
+            <div className="table-cards">
+              <table>
+                <tbody>{best.map(i => <PerformerRow key={i.id} inv={i} />)}</tbody>
+              </table>
+            </div>
             <h3 style={{ marginTop: 18 }}>Worst Performers</h3>
-            <table>
-              <tbody>{worst.map(i => <PerformerRow key={i.id} inv={i} />)}</tbody>
-            </table>
+            <div className="table-cards">
+              <table>
+                <tbody>{worst.map(i => <PerformerRow key={i.id} inv={i} />)}</tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
