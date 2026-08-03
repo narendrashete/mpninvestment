@@ -3,11 +3,15 @@ import db, { ensureMaster, sortMaster } from '../db.js';
 
 const router = Router();
 
-// Master pick-lists. `field` is the investment field each list feeds, which is
-// also what a rename has to cascade to and what a delete has to check for use.
+// Master pick-lists. `field` is the record field each list feeds, `collection`
+// is the array it's checked/cascaded against — which is also what a rename
+// has to cascade to and what a delete has to check for use. Holders are
+// shared across Investments and LIC policies, so both kinds using the
+// `holders` list is intentional; a rename there cascades to both collections.
 const KINDS = {
-  holders: { field: 'holder', label: 'Holder' },
-  investmentNames: { field: 'name', label: 'Investment name' }
+  holders: { field: 'holder', label: 'Holder', collections: [() => db.data.investments, () => db.data.licPolicies] },
+  investmentNames: { field: 'name', label: 'Investment name', collections: [() => db.data.investments] },
+  licPlans: { field: 'planName', label: 'Plan name', collections: [() => db.data.licPolicies] }
 };
 
 function kindOf(req, res) {
@@ -19,21 +23,23 @@ function kindOf(req, res) {
   return kind;
 }
 
-const usageCount = (group, field, value) =>
-  db.data.investments.filter(i => i.group === group && i[field] === value).length;
+const usageCount = (group, kind, value) => {
+  const { field, collections } = KINDS[kind];
+  return collections.reduce((a, get) => a + get().filter(x => x.group === group && x[field] === value).length, 0);
+};
 
 function withUsage(group, kind) {
-  const { field } = KINDS[kind];
-  return db.data.masters[group][kind].map(value => ({ value, inUse: usageCount(group, field, value) }));
+  return db.data.masters[group][kind].map(value => ({ value, inUse: usageCount(group, kind, value) }));
 }
 
-// Both lists, each entry with how many investments currently use it — scoped
+// All lists, each entry with how many records currently use it — scoped
 // to the logged-in user's group.
 router.get('/', (req, res) => {
   const group = req.user.group;
   res.json({
     holders: withUsage(group, 'holders'),
-    investmentNames: withUsage(group, 'investmentNames')
+    investmentNames: withUsage(group, 'investmentNames'),
+    licPlans: withUsage(group, 'licPlans')
   });
 });
 
@@ -70,10 +76,12 @@ router.put('/:kind', async (req, res) => {
   const clash = list.find(x => x !== from && x.toLowerCase() === to.toLowerCase());
   if (clash) return res.status(409).json({ error: `"${clash}" is already in the list` });
 
-  const { field } = KINDS[kind];
+  const { field, collections } = KINDS[kind];
   let updated = 0;
-  for (const inv of db.data.investments) {
-    if (inv.group === group && inv[field] === from) { inv[field] = to; updated++; }
+  for (const get of collections) {
+    for (const rec of get()) {
+      if (rec.group === group && rec[field] === from) { rec[field] = to; updated++; }
+    }
   }
   list[idx] = to;
   sortMaster(list);
@@ -81,8 +89,8 @@ router.put('/:kind', async (req, res) => {
   res.json({ value: to, list: withUsage(group, kind), updated });
 });
 
-// Delete — refused while any investment in this group still uses the value,
-// since holder and name are only ever chosen from these lists.
+// Delete — refused while any record in this group still uses the value,
+// since these fields are only ever chosen from these lists.
 router.delete('/:kind', async (req, res) => {
   const kind = kindOf(req, res);
   if (!kind) return;
@@ -92,10 +100,10 @@ router.delete('/:kind', async (req, res) => {
   const idx = list.indexOf(value);
   if (idx === -1) return res.status(404).json({ error: `"${value}" is not in the list` });
 
-  const used = usageCount(group, KINDS[kind].field, value);
+  const used = usageCount(group, kind, value);
   if (used > 0) {
     return res.status(409).json({
-      error: `"${value}" is used by ${used} investment${used > 1 ? 's' : ''} — reassign those first.`
+      error: `"${value}" is used by ${used} record${used > 1 ? 's' : ''} — reassign those first.`
     });
   }
   list.splice(idx, 1);

@@ -42,5 +42,13 @@ export const api = {
   masters: () => request('/api/masters'),
   addMaster: (kind, value) => request(`/api/masters/${kind}`, { method: 'POST', body: JSON.stringify({ value }) }),
   renameMaster: (kind, from, to) => request(`/api/masters/${kind}`, { method: 'PUT', body: JSON.stringify({ from, to }) }),
-  deleteMaster: (kind, value) => request(`/api/masters/${kind}`, { method: 'DELETE', body: JSON.stringify({ value }) })
+  deleteMaster: (kind, value) => request(`/api/masters/${kind}`, { method: 'DELETE', body: JSON.stringify({ value }) }),
+
+  licPolicies: () => request('/api/lic'),
+  licPolicy: (id) => request(`/api/lic/${id}`),
+  createLicPolicy: (body) => request('/api/lic', { method: 'POST', body: JSON.stringify(body) }),
+  updateLicPolicy: (id, body) => request(`/api/lic/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteLicPolicy: (id) => request(`/api/lic/${id}`, { method: 'DELETE' }),
+  addLicPremium: (id, body) => request(`/api/lic/${id}/premiums`, { method: 'POST', body: JSON.stringify(body) }),
+  deleteLicPremium: (id, paymentId) => request(`/api/lic/${id}/premiums/${paymentId}`, { method: 'DELETE' })
 };

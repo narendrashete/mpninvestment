@@ -8,6 +8,7 @@ import holdings from './routes/holdings.js';
 import prices from './routes/prices.js';
 import settings from './routes/settings.js';
 import masters from './routes/masters.js';
+import lic from './routes/lic.js';
 import { sessionMiddleware, requireAuth, loginPage, handleLogin, handleLogout, whoami } from './middleware/auth.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -32,6 +33,7 @@ app.use('/api/holdings', holdings);
 app.use('/api/prices', prices);
 app.use('/api/settings', settings);
 app.use('/api/masters', masters);
+app.use('/api/lic', lic);
 
 // Serve the built client when available (production / start.bat).
 // Vite content-hashes filenames under /assets, so those are safe to cache

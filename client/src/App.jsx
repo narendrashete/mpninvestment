@@ -5,11 +5,14 @@ import Investments from './pages/Investments.jsx';
 import InvestmentDetail from './pages/InvestmentDetail.jsx';
 import Closed from './pages/Closed.jsx';
 import Masters from './pages/Masters.jsx';
+import LicPolicies from './pages/LicPolicies.jsx';
+import LicPolicyDetail from './pages/LicPolicyDetail.jsx';
 
 const NAV_ITEMS = [
   { to: '/', end: true, label: 'Dashboard', shortLabel: 'Dashboard', icon: '⌂' },
   { to: '/investments', label: 'Investments', shortLabel: 'Investments', icon: '☰' },
   { to: '/closed', label: 'Redeemed / Renewed', shortLabel: 'Redeemed', icon: '↺' },
+  { to: '/lic', label: 'LIC Policies', shortLabel: 'LIC', icon: '🛡' },
   { to: '/masters', label: 'Masters', shortLabel: 'Masters', icon: '⚙' },
 ];
 
@@ -44,6 +47,8 @@ export default function App() {
           <Route path="/investments" element={<Investments />} />
           <Route path="/investments/:id" element={<InvestmentDetail />} />
           <Route path="/closed" element={<Closed />} />
+          <Route path="/lic" element={<LicPolicies />} />
+          <Route path="/lic/:id" element={<LicPolicyDetail />} />
           <Route path="/masters" element={<Masters />} />
         </Routes>
       </main>

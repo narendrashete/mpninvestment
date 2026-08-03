@@ -144,6 +144,14 @@ export default function Masters() {
           onChanged={load}
           onError={setError}
         />
+        <MasterList
+          kind="licPlans"
+          title="LIC Plan Names"
+          placeholder="New LIC plan name"
+          entries={masters.licPlans}
+          onChanged={load}
+          onError={setError}
+        />
       </div>
     </>
   );
