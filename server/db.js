@@ -15,11 +15,16 @@ export const dbFile = join(dataDir, 'db.json');
 // Nivedita (the original data); RPS = Ramchandra & Smita Shete.
 export const GROUPS = ['MPN', 'RPS'];
 
-const emptyMasters = () => ({ holders: [], investmentNames: [] });
+const emptyMasters = () => ({ holders: [], investmentNames: [], licPlans: [] });
 
 const defaultData = {
   investments: [],
   holdings: [],
+  // LIC policies are a separate kind of holding — no current value/ROI, never
+  // rolled into the Investments/Dashboard aggregates. licPremiums is a flat
+  // log of payment dates, foreign-keyed by policyId (mirrors holdings).
+  licPolicies: [],
+  licPremiums: [],
   // Pick-lists for the Add/Edit Investment form, one per group. Holder and
   // name can only be chosen from the logged-in user's group list — new
   // entries are added on the Masters page.
@@ -32,6 +37,8 @@ await db.read();
 db.data ||= defaultData;
 db.data.investments ||= [];
 db.data.holdings ||= [];
+db.data.licPolicies ||= [];
+db.data.licPremiums ||= [];
 db.data.settings ||= defaultData.settings;
 
 // Migrate the old flat masters shape ({ holders: [], investmentNames: [] })
@@ -48,6 +55,7 @@ for (const g of GROUPS) {
   db.data.masters[g] ||= emptyMasters();
   db.data.masters[g].holders ||= [];
   db.data.masters[g].investmentNames ||= [];
+  db.data.masters[g].licPlans ||= [];
 }
 
 export const sortMaster = (list) => list.sort((a, b) => a.localeCompare(b));
