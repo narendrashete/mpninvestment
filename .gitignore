@@ -5,6 +5,7 @@ client/dist/
 # Real financial data and secrets — never committed, even to a private repo
 data/*.json
 data/*.bak*
+data/health-docs/
 certs/*.pem
 .env
 
