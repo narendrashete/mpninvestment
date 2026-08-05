@@ -7,12 +7,15 @@ import Closed from './pages/Closed.jsx';
 import Masters from './pages/Masters.jsx';
 import LicPolicies from './pages/LicPolicies.jsx';
 import LicPolicyDetail from './pages/LicPolicyDetail.jsx';
+import HealthPolicies from './pages/HealthPolicies.jsx';
+import HealthPolicyDetail from './pages/HealthPolicyDetail.jsx';
 
 const NAV_ITEMS = [
   { to: '/', end: true, label: 'Dashboard', shortLabel: 'Dashboard', icon: '⌂' },
   { to: '/investments', label: 'Investments', shortLabel: 'Investments', icon: '☰' },
   { to: '/closed', label: 'Redeemed / Renewed', shortLabel: 'Redeemed', icon: '↺' },
   { to: '/lic', label: 'LIC Policies', shortLabel: 'LIC', icon: '🛡' },
+  { to: '/health', label: 'Health Insurance', shortLabel: 'Health', icon: '⚕' },
   { to: '/masters', label: 'Masters', shortLabel: 'Masters', icon: '⚙' },
 ];
 
@@ -49,6 +52,8 @@ export default function App() {
           <Route path="/closed" element={<Closed />} />
           <Route path="/lic" element={<LicPolicies />} />
           <Route path="/lic/:id" element={<LicPolicyDetail />} />
+          <Route path="/health" element={<HealthPolicies />} />
+          <Route path="/health/:id" element={<HealthPolicyDetail />} />
           <Route path="/masters" element={<Masters />} />
         </Routes>
       </main>

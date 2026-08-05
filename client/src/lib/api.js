@@ -50,5 +50,25 @@ export const api = {
   updateLicPolicy: (id, body) => request(`/api/lic/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteLicPolicy: (id) => request(`/api/lic/${id}`, { method: 'DELETE' }),
   addLicPremium: (id, body) => request(`/api/lic/${id}/premiums`, { method: 'POST', body: JSON.stringify(body) }),
-  deleteLicPremium: (id, paymentId) => request(`/api/lic/${id}/premiums/${paymentId}`, { method: 'DELETE' })
+  deleteLicPremium: (id, paymentId) => request(`/api/lic/${id}/premiums/${paymentId}`, { method: 'DELETE' }),
+
+  healthPolicies: () => request('/api/health'),
+  healthPolicy: (id) => request(`/api/health/${id}`),
+  createHealthPolicy: (body) => request('/api/health', { method: 'POST', body: JSON.stringify(body) }),
+  updateHealthPolicy: (id, body) => request(`/api/health/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteHealthPolicy: (id) => request(`/api/health/${id}`, { method: 'DELETE' }),
+  uploadHealthDocument: async (id, file) => {
+    const form = new FormData();
+    form.append('document', file);
+    const res = await fetch(`/api/health/${id}/document`, { method: 'POST', body: form });
+    if (res.status === 401) {
+      window.location.href = '/login';
+      return new Promise(() => {});
+    }
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+    return data;
+  },
+  deleteHealthDocument: (id) => request(`/api/health/${id}/document`, { method: 'DELETE' }),
+  healthDocumentUrl: (id) => `/api/health/${id}/document`
 };

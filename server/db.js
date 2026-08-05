@@ -25,6 +25,10 @@ const defaultData = {
   // log of payment dates, foreign-keyed by policyId (mirrors holdings).
   licPolicies: [],
   licPremiums: [],
+  // Health insurance policies — same isolation as LIC (no ROI, excluded from
+  // Investments/Dashboard), but also carry a stored PDF of the original policy
+  // document (see server/routes/health.js and data/health-docs/).
+  healthPolicies: [],
   // Pick-lists for the Add/Edit Investment form, one per group. Holder and
   // name can only be chosen from the logged-in user's group list — new
   // entries are added on the Masters page.
@@ -39,6 +43,7 @@ db.data.investments ||= [];
 db.data.holdings ||= [];
 db.data.licPolicies ||= [];
 db.data.licPremiums ||= [];
+db.data.healthPolicies ||= [];
 db.data.settings ||= defaultData.settings;
 
 // Migrate the old flat masters shape ({ holders: [], investmentNames: [] })
