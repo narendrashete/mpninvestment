@@ -82,9 +82,12 @@ export default function HealthPolicies() {
                 <td className="num" data-label="Sum Insured">{formatINR(p.sumInsured)}</td>
                 <td className="num" data-label="Premium">{formatINR(p.premiumAmount)}</td>
                 <td data-label="Renewal Due">
-                  {p.daysToRenewal != null
-                    ? <span className={`badge ${daysLeftClass(p.daysToRenewal)}`}>{daysLeftLabel(p.daysToRenewal)}</span>
-                    : formatDate(p.renewalDueDate)}
+                  <div>{formatDate(p.renewalDueDate)}</div>
+                  {p.daysToRenewal != null && (
+                    <span className={`badge ${daysLeftClass(p.daysToRenewal)}`} style={{ marginTop: 4, display: 'inline-block' }}>
+                      {daysLeftLabel(p.daysToRenewal)}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
