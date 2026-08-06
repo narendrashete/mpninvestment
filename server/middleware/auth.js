@@ -54,6 +54,16 @@ function loginHtml(error) {
            font-size: 15px; cursor: pointer; }
   .err { color: #dc2626; font-size: 13px; margin: -6px 0 12px; }
 
+  .pw-wrap { position: relative; }
+  .pw-wrap input { padding-right: 40px; margin-bottom: 0; }
+  .pw-toggle { position: absolute; top: 0; right: 0; height: 100%; width: 40px; border: none; background: none;
+               display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; padding: 0; }
+  .pw-toggle svg { width: 20px; height: 20px; }
+  .pw-toggle .eye-off { display: none; }
+  .pw-wrap.revealed .eye { display: none; }
+  .pw-wrap.revealed .eye-off { display: block; }
+  form > .pw-wrap { margin-bottom: 12px; }
+
   /* Phones: fill more of the screen, bigger everything, feels app-like */
   @media (max-width: 480px) {
     body { padding: 0; align-items: stretch; }
@@ -62,8 +72,10 @@ function loginHtml(error) {
     .badge-icon { width: 64px; height: 64px; font-size: 30px; margin-bottom: 20px; }
     h1 { font-size: 26px; margin-bottom: 32px; }
     input { padding: 15px 14px; margin-bottom: 16px; font-size: 17px; border-radius: 10px; }
+    .pw-wrap input { margin-bottom: 0; }
     button { padding: 16px; font-size: 17px; font-weight: 600; border-radius: 10px; }
     .err { font-size: 14px; margin: -8px 0 14px; }
+    .pw-toggle { width: 48px; }
   }
 </style></head>
 <body>
@@ -72,9 +84,25 @@ function loginHtml(error) {
     <h1>InvestTrack</h1>
     ${error ? `<div class="err">${error}</div>` : ''}
     <input name="username" placeholder="Username" autofocus required />
-    <input name="password" type="password" placeholder="Password" required />
+    <div class="pw-wrap" id="pwWrap">
+      <input name="password" type="password" placeholder="Password" required id="pwInput" />
+      <button type="button" class="pw-toggle" id="pwToggle" aria-label="Show password" tabindex="-1">
+        <svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.4 19.4 0 0 1 4.22-5.44M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a19.4 19.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </button>
+    </div>
     <button type="submit">Sign in</button>
   </form>
+  <script>
+    document.getElementById('pwToggle').addEventListener('click', function () {
+      var input = document.getElementById('pwInput');
+      var wrap = document.getElementById('pwWrap');
+      var showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      wrap.classList.toggle('revealed', !showing);
+      this.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    });
+  </script>
 </body></html>`;
 }
 
