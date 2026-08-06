@@ -169,6 +169,9 @@ export default function Dashboard() {
         <button className="btn btn-sm" onClick={refreshNow} disabled={refreshing}>
           {refreshing ? 'Refreshing…' : '↻ Refresh prices'}
         </button>
+        <a className="btn btn-sm" href="/docs/InvestTrack-User-Guide.pdf" target="_blank" rel="noreferrer">
+          📄 User Guide
+        </a>
       </div>
 
       {error && <div className="error-banner">{error}</div>}
