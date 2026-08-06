@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db, { ensureMaster, sortMaster } from '../db.js';
+import { assertDemoLimit } from '../demoLimits.js';
 
 const router = Router();
 
@@ -49,6 +50,11 @@ router.post('/:kind', async (req, res) => {
   const group = req.user.group;
   const value = String(req.body.value ?? '').trim();
   if (!value) return res.status(400).json({ error: `${KINDS[kind].label} cannot be empty` });
+  try {
+    assertDemoLimit(group, db.data.masters[group][kind].length, kind, `${KINDS[kind].label} entries`);
+  } catch (err) {
+    return res.status(429).json({ error: err.message });
+  }
   const before = db.data.masters[group][kind].length;
   const stored = ensureMaster(group, kind, value);
   if (db.data.masters[group][kind].length === before) {

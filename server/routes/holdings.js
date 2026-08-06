@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db, { newId } from '../db.js';
 import { latestNav } from '../services/mfapi.js';
 import { getQuote } from '../services/yahoo.js';
+import { assertDemoLimit } from '../demoLimits.js';
 
 const router = Router();
 
@@ -24,6 +25,14 @@ router.post('/', async (req, res) => {
   const parent = db.data.investments.find(i => i.id === investmentId && i.group === req.user.group);
   if (!parent) return res.status(400).json({ error: 'investmentId does not exist' });
   if (parent.type !== 'SHARES') return res.status(400).json({ error: 'Holdings can only be added to SHARES investments' });
+  try {
+    const groupHoldingsCount = db.data.holdings.filter(h =>
+      db.data.investments.some(i => i.id === h.investmentId && i.group === req.user.group)
+    ).length;
+    assertDemoLimit(req.user.group, groupHoldingsCount, 'holdings', 'MF/stock holdings');
+  } catch (err) {
+    return res.status(429).json({ error: err.message });
+  }
   if (!['MF', 'STOCK', 'OTHER'].includes(kind)) return res.status(400).json({ error: 'kind must be MF, STOCK or OTHER' });
   if (kind === 'MF' && !schemeCode) return res.status(400).json({ error: 'schemeCode is required for MF holdings' });
   if (kind === 'STOCK' && !symbol) return res.status(400).json({ error: 'symbol is required for STOCK holdings' });

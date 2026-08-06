@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db, { newId } from '../db.js';
 import { daysToMaturity } from '../services/roi.js';
+import { assertDemoLimit } from '../demoLimits.js';
 
 const router = Router();
 
@@ -78,6 +79,7 @@ router.get('/:id', (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const group = req.user.group;
+    assertDemoLimit(group, db.data.licPolicies.filter(p => p.group === group).length, 'licPolicies', 'LIC policies');
     const policy = sanitize(group, req.body);
     if (!policy.policyNo) return res.status(400).json({ error: 'policyNo is required' });
     if (!policy.planName) return res.status(400).json({ error: 'planName is required' });
