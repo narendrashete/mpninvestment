@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db, { newId } from '../db.js';
 import { enrich, categorySummary, holderSummary } from '../services/roi.js';
+import { assertDemoLimit } from '../demoLimits.js';
 
 const router = Router();
 
@@ -162,6 +163,7 @@ router.get('/:id', (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const group = req.user.group;
+    assertDemoLimit(group, db.data.investments.filter(i => i.group === group).length, 'investments', 'investments');
     const inv = sanitize(group, req.body);
     if (!inv.type) return res.status(400).json({ error: 'type is required' });
     if (!inv.name) return res.status(400).json({ error: 'name is required' });

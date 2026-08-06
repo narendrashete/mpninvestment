@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mkdirSync, unlink, createReadStream, existsSync, writeFileSync } from 'node:fs';
+import { mkdirSync, unlink, createReadStream, existsSync, writeFileSync, statSync } from 'node:fs';
 import multer from 'multer';
 import db, { newId } from '../db.js';
 import { daysToMaturity } from '../services/roi.js';
+import { assertDemoLimit, DEMO_LIMITS } from '../demoLimits.js';
 
 const router = Router();
 
@@ -89,6 +90,7 @@ router.get('/:id', (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const group = req.user.group;
+    assertDemoLimit(group, db.data.healthPolicies.filter(p => p.group === group).length, 'healthPolicies', 'health policies');
     const policy = sanitize(group, req.body);
     if (!policy.policyNo) return res.status(400).json({ error: 'policyNo is required' });
     if (!policy.holder) return res.status(400).json({ error: 'holder is required' });
@@ -135,6 +137,18 @@ router.post('/:id/document', upload.single('document'), async (req, res) => {
   const policy = db.data.healthPolicies.find(p => p.id === req.params.id && p.group === req.user.group);
   if (!policy) return res.status(404).json({ error: 'Health policy not found' });
   if (!req.file) return res.status(400).json({ error: 'A PDF file is required' });
+  if (req.user.group === 'DEMO') {
+    const existingBytes = db.data.healthPolicies
+      .filter(p => p.group === 'DEMO' && p.id !== policy.id && p.documentOriginalName)
+      .reduce((a, p) => {
+        const path = docPath(p.id);
+        return a + (existsSync(path) ? statSync(path).size : 0);
+      }, 0);
+    if (existingBytes + req.file.buffer.length > DEMO_LIMITS.healthDocBytes) {
+      const capMb = Math.round(DEMO_LIMITS.healthDocBytes / (1024 * 1024));
+      return res.status(429).json({ error: `Demo storage limit reached (${capMb}MB of uploaded PDFs) — the demo sandbox resets nightly, try again after the reset.` });
+    }
+  }
   writeFileSync(docPath(policy.id), req.file.buffer);
   policy.documentOriginalName = req.file.originalname;
   policy.documentUploadedAt = new Date().toISOString();
