@@ -12,8 +12,9 @@ export const dbFile = join(dataDir, 'db.json');
 
 // Investment groups — each bound to its own login and never merged together
 // anywhere in the app (dashboard, lists, masters). MPN = Mrunal/Narendra/
-// Nivedita (the original data); RPS = Ramchandra & Smita Shete.
-export const GROUPS = ['MPN', 'RPS'];
+// Nivedita (the original data); RPS = Ramchandra & Smita Shete; DEMO = mock
+// data (Aditya/Neha/Yash) for demoing the app, never real financial data.
+export const GROUPS = ['MPN', 'RPS', 'DEMO'];
 
 const emptyMasters = () => ({ holders: [], investmentNames: [], licPlans: [] });
 
