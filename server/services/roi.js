@@ -103,6 +103,47 @@ export function categorySummary(enriched) {
   return Object.values(byType);
 }
 
+// Per-holding performance (an individual MF scheme or stock within a SHARES
+// investment) — distinct from categorySummary/holderSummary, which operate
+// at the whole-investment level. Only holdings with a recorded investedAmount
+// can show a return; OTHER-kind holdings (SGBs, delisted scrips — no live
+// feed, manually priced) are left out of this comparison entirely.
+export function holdingPerformance(holdings, investments) {
+  const investmentById = new Map(investments.map(i => [i.id, i]));
+  return holdings
+    .filter(h => h.kind !== 'OTHER' && h.investedAmount != null && h.investedAmount > 0)
+    .map(h => {
+      const parent = investmentById.get(h.investmentId);
+      const value = (h.units || 0) * (h.lastPrice || 0);
+      const gain = value - h.investedAmount;
+      return {
+        id: h.id,
+        kind: h.kind,
+        name: h.displayName || h.symbol || h.schemeCode,
+        symbol: h.symbol,
+        schemeCode: h.schemeCode,
+        platform: parent?.name || null,
+        holder: parent?.holder || null,
+        investmentId: h.investmentId,
+        investedAmount: h.investedAmount,
+        currentValue: value,
+        gain,
+        simpleReturn: gain / h.investedAmount
+      };
+    });
+}
+
+// Top N holdings by return, split into MF schemes vs Shares (stocks) — feeds
+// the Dashboard's "Top performers" comparison card.
+export function topHoldingsByKind(holdings, investments, n = 5) {
+  const perf = holdingPerformance(holdings, investments);
+  const topOf = (kind) => perf
+    .filter(h => h.kind === kind)
+    .sort((a, b) => b.simpleReturn - a.simpleReturn)
+    .slice(0, n);
+  return { MF: topOf('MF'), STOCK: topOf('STOCK') };
+}
+
 export function holderSummary(enriched) {
   const byHolder = {};
   for (const inv of enriched) {
