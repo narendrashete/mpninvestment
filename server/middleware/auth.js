@@ -113,7 +113,10 @@ export function loginPage(req, res) {
 
 export async function handleLogin(req, res) {
   const { username, password } = req.body || {};
-  const user = USERS.find(u => u.username === username);
+  // Username is matched case-insensitively (so "PrimeDemo"/"primedemo" both
+  // work); password stays case-sensitive via bcrypt.compare below.
+  const uname = typeof username === 'string' ? username.trim().toLowerCase() : '';
+  const user = uname && USERS.find(u => u.username.toLowerCase() === uname);
   const ok = user && password && await bcrypt.compare(password, user.passwordHash);
   if (ok) {
     req.session.user = { username: user.username, group: user.group };
