@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db, { newId } from '../db.js';
 import { latestNav } from '../services/mfapi.js';
 import { getQuote } from '../services/yahoo.js';
+import { topInCategory } from '../services/mfBenchmark.js';
 import { assertDemoLimit } from '../demoLimits.js';
 
 const router = Router();
@@ -87,6 +88,22 @@ function findHoldingInGroup(req) {
   const parent = db.data.investments.find(i => i.id === holding.investmentId && i.group === req.user.group);
   return parent ? holding : null;
 }
+
+// Benchmark this scheme against its own AMFI category — the top performers by
+// 1-year NAV growth. Cold builds take a while (see services/mfBenchmark.js);
+// afterwards it's served from the day's cache.
+router.get('/:id/compare', async (req, res) => {
+  const holding = findHoldingInGroup(req);
+  if (!holding) return res.status(404).json({ error: 'Holding not found' });
+  if (holding.kind !== 'MF') {
+    return res.status(400).json({ error: 'Only mutual fund holdings can be compared by category.' });
+  }
+  try {
+    res.json(await topInCategory(holding.schemeCode, 5));
+  } catch (err) {
+    res.status(502).json({ error: `Category comparison failed: ${err.message}` });
+  }
+});
 
 router.put('/:id', async (req, res) => {
   const holding = findHoldingInGroup(req);

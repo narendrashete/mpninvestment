@@ -105,23 +105,6 @@ function PerformerRow({ inv }) {
   );
 }
 
-function HoldingPerformerRow({ h }) {
-  const navigate = useNavigate();
-  const cls = h.simpleReturn >= 0 ? 'pos' : 'neg';
-  return (
-    <tr className="clickable" onClick={() => navigate(`/investments/${h.investmentId}`)}>
-      <td data-label="Name">
-        <strong>{h.name}</strong>
-        <div className="muted" style={{ fontSize: 12.5 }}>
-          {h.platform}{h.holder ? ` · ${h.holder}` : ''}
-        </div>
-      </td>
-      <td className="num" data-label="Invested">{formatINR(h.investedAmount)}</td>
-      <td className={`num ${cls}`} data-label="Return">{formatPct(h.simpleReturn)}</td>
-    </tr>
-  );
-}
-
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -172,7 +155,7 @@ export default function Dashboard() {
   if (!data && !error) return <p className="muted">Loading…</p>;
   if (!data) return <div className="error-banner">{error}</div>;
 
-  const { totals, maturingSoon, overdue, best, worst, byCategory, byHolder, topHoldings } = data;
+  const { totals, maturingSoon, overdue, best, worst, byCategory, byHolder } = data;
   const gainCls = totals.gain >= 0 ? 'pos' : 'neg';
 
   return (
@@ -301,38 +284,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      {topHoldings && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <h3>Top 5 Comparison <span className="muted" style={{ textTransform: 'none' }}>(MF schemes vs Shares, by return)</span></h3>
-          <div className="grid grid-2">
-            <div>
-              <h4 className="muted" style={{ margin: '0 0 8px' }}>Mutual Fund Schemes</h4>
-              {topHoldings.MF.length === 0
-                ? <p className="empty">No MF holdings with an invested amount yet.</p>
-                : (
-                  <div className="table-cards">
-                    <table>
-                      <tbody>{topHoldings.MF.map(h => <HoldingPerformerRow key={h.id} h={h} />)}</tbody>
-                    </table>
-                  </div>
-                )}
-            </div>
-            <div>
-              <h4 className="muted" style={{ margin: '0 0 8px' }}>Shares</h4>
-              {topHoldings.STOCK.length === 0
-                ? <p className="empty">No share holdings with an invested amount yet.</p>
-                : (
-                  <div className="table-cards">
-                    <table>
-                      <tbody>{topHoldings.STOCK.map(h => <HoldingPerformerRow key={h.id} h={h} />)}</tbody>
-                    </table>
-                  </div>
-                )}
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

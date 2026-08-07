@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db, { newId } from '../db.js';
-import { enrich, categorySummary, holderSummary, topHoldingsByKind } from '../services/roi.js';
+import { enrich, categorySummary, holderSummary } from '../services/roi.js';
 import { assertDemoLimit } from '../demoLimits.js';
 
 const router = Router();
@@ -84,11 +84,6 @@ router.get('/dashboard', (req, res) => {
     .filter(i => i.roi != null)
     .sort((a, b) => b.roi - a.roi);
 
-  // Top 5 comparison, one level below category: individual MF schemes vs
-  // individual shares (holdings), not whole SHARES-type investment containers.
-  const enrichedIds = new Set(enriched.map(i => i.id));
-  const groupHoldings = db.data.holdings.filter(h => enrichedIds.has(h.investmentId));
-
   res.json({
     windowDays,
     totals: {
@@ -104,7 +99,6 @@ router.get('/dashboard', (req, res) => {
     worst: ranked.slice(-3).reverse(),
     byCategory: categorySummary(enriched),
     byHolder: holderSummary(enriched),
-    topHoldings: topHoldingsByKind(groupHoldings, enriched, 5),
     lastPriceRefresh: db.data.settings.lastPriceRefresh
   });
 });

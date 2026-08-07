@@ -6,6 +6,7 @@ import InvestmentForm from '../components/InvestmentForm.jsx';
 import HoldingForm from '../components/HoldingForm.jsx';
 import RedeemForm from '../components/RedeemForm.jsx';
 import RenewForm from '../components/RenewForm.jsx';
+import CompareModal from '../components/CompareModal.jsx';
 
 export default function InvestmentDetail() {
   const { id } = useParams();
@@ -17,6 +18,7 @@ export default function InvestmentDetail() {
   const [redeeming, setRedeeming] = useState(false);
   const [renewing, setRenewing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [comparing, setComparing] = useState(null);
   const [links, setLinks] = useState({});
 
   const load = useCallback(
@@ -222,6 +224,9 @@ export default function InvestmentDetail() {
                         <td className="num" data-label="Invested">{formatINR(h.investedAmount)}</td>
                         <td className={`num ${hGain == null ? '' : hGain >= 0 ? 'pos' : 'neg'}`} data-label="Gain">{formatINR(hGain)}</td>
                         <td style={{ whiteSpace: 'nowrap' }} data-label="">
+                          {/* Only MF schemes have an AMFI category to benchmark against —
+                              stocks and manually-priced OTHER holdings have no peer list. */}
+                          {h.kind === 'MF' && <button className="btn btn-sm" onClick={() => setComparing(h)}>Compare</button>}{' '}
                           <button className="btn btn-sm" onClick={() => editUnits(h)}>Units</button>{' '}
                           <button className="btn btn-sm btn-danger" onClick={() => delHolding(h)}>✕</button>
                         </td>
@@ -262,6 +267,9 @@ export default function InvestmentDetail() {
           onClose={() => setRenewing(false)}
           onSaved={(saved) => { setRenewing(false); navigate(`/investments/${saved.renewed.id}`); }}
         />
+      )}
+      {comparing && (
+        <CompareModal holding={comparing} onClose={() => setComparing(null)} />
       )}
     </>
   );

@@ -30,6 +30,7 @@ export const api = {
   createHolding: (body) => request('/api/holdings', { method: 'POST', body: JSON.stringify(body) }),
   updateHolding: (id, body) => request(`/api/holdings/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteHolding: (id) => request(`/api/holdings/${id}`, { method: 'DELETE' }),
+  compareHolding: (id) => request(`/api/holdings/${id}/compare`),
 
   searchMf: (q) => request(`/api/prices/search/mf?q=${encodeURIComponent(q)}`),
   searchStock: (q) => request(`/api/prices/search/stock?q=${encodeURIComponent(q)}`),
