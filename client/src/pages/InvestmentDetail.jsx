@@ -72,6 +72,20 @@ export default function InvestmentDetail() {
     }
   };
 
+  const editInvested = async (h) => {
+    const val = window.prompt(
+      `Amount invested (₹) in ${h.displayName || h.symbol}:`,
+      h.investedAmount ?? ''
+    );
+    if (val == null) return;
+    try {
+      await api.updateHolding(h.id, { investedAmount: val === '' ? '' : val });
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const refreshPrices = async () => {
     setRefreshing(true);
     try {
@@ -142,7 +156,7 @@ export default function InvestmentDetail() {
         <>
           <div className="grid grid-cards" style={{ marginBottom: 16 }}>
             <div className="card stat">
-              <div className="label">Amount Invested</div>
+              <div className="label">Amount Invested{inv.investedFromHoldings ? ' (from holdings)' : ''}</div>
               <div className="value">{formatINR(inv.amountInvested)}</div>
             </div>
             <div className="card stat">
@@ -223,6 +237,7 @@ export default function InvestmentDetail() {
                         <td className={`num ${hGain == null ? '' : hGain >= 0 ? 'pos' : 'neg'}`} data-label="Gain">{formatINR(hGain)}</td>
                         <td style={{ whiteSpace: 'nowrap' }} data-label="">
                           <button className="btn btn-sm" onClick={() => editUnits(h)}>Units</button>{' '}
+                          <button className="btn btn-sm" onClick={() => editInvested(h)}>Invested</button>{' '}
                           <button className="btn btn-sm btn-danger" onClick={() => delHolding(h)}>✕</button>
                         </td>
                       </tr>

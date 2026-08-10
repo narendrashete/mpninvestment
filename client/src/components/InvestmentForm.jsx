@@ -12,7 +12,12 @@ const EMPTY = {
 export default function InvestmentForm({ initial, onClose, onSaved }) {
   const [form, setForm] = useState(() =>
     initial
-      ? Object.fromEntries(Object.keys(EMPTY).map(k => [k, initial[k] ?? '']))
+      ? {
+        ...Object.fromEntries(Object.keys(EMPTY).map(k => [k, initial[k] ?? ''])),
+        // With holdings the shown amount is their sum — edit the stored figure,
+        // which is what's used when there are no holdings.
+        amountInvested: initial.manualAmountInvested ?? initial.amountInvested ?? ''
+      }
       : EMPTY
   );
   const [error, setError] = useState(null);
@@ -88,7 +93,10 @@ export default function InvestmentForm({ initial, onClose, onSaved }) {
                 <label className="field">Rate of Interest (%)
                   <input type="number" step="0.01" value={form.rateOfInterest} onChange={set('rateOfInterest')} />
                 </label>
-                <label className="field">Amount Invested (₹)
+                <label className="field">
+                  {isShares && initial?.investedFromHoldings
+                    ? 'Amount Invested (₹) — used until you add live holdings'
+                    : 'Amount Invested (₹)'}
                   <input type="number" step="1" value={form.amountInvested} onChange={set('amountInvested')} required />
                 </label>
                 <label className="field">Investment Date

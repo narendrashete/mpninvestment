@@ -28,6 +28,19 @@ export function currentValue(investment, holdings) {
   return investment.maturityValue ?? null;
 }
 
+// Amount invested: for SHARES, the sum of the per-holding cost once any holding
+// carries one — so editing a holding's invested amount rolls up to the parent.
+// With no holdings (or none priced), the manually entered amount is used.
+export function investedValue(investment, holdings) {
+  if (investment.type === 'SHARES') {
+    const own = holdings.filter(h => h.investmentId === investment.id && h.investedAmount != null);
+    if (own.length > 0) {
+      return own.reduce((sum, h) => sum + h.investedAmount, 0);
+    }
+  }
+  return investment.amountInvested ?? null;
+}
+
 export function simpleReturn(invested, value) {
   if (!invested || value == null) return null;
   return (value - invested) / invested;
@@ -47,7 +60,7 @@ export function annualizedReturn(invested, value, startIso, endIso) {
 // Enrich one investment with computed fields, given all holdings.
 export function enrich(investment, holdings, today = new Date()) {
   const value = currentValue(investment, holdings);
-  const invested = investment.amountInvested;
+  const invested = investedValue(investment, holdings);
   const own = investment.type === 'SHARES'
     ? holdings.filter(h => h.investmentId === investment.id)
     : [];
@@ -69,6 +82,11 @@ export function enrich(investment, holdings, today = new Date()) {
   return {
     ...investment,
     closed,
+    // Derived total wins everywhere; the stored figure stays visible so the
+    // edit form prefills what is actually on the record.
+    amountInvested: invested,
+    manualAmountInvested: investment.amountInvested ?? null,
+    investedFromHoldings: own.some(h => h.investedAmount != null),
     currentValue: value,
     hasLiveHoldings: own.length > 0,
     holdingsCount: own.length,
