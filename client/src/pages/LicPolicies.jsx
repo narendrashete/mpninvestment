@@ -73,7 +73,15 @@ export default function LicPolicies() {
           <tbody>
             {filtered.map(p => (
               <tr key={p.id} className="clickable" onClick={() => navigate(`/lic/${p.id}`)}>
-                <td data-label="Policy No.">{p.policyNo}</td>
+                <td data-label="Policy No.">
+                  {p.policyNo}
+                  {p.documentOriginalName && (
+                    <span
+                      title={`Policy document attached: ${p.documentOriginalName}`}
+                      style={{ marginLeft: 6 }}
+                    >📎</span>
+                  )}
+                </td>
                 <td data-label="Plan Name"><strong>{p.planName}</strong></td>
                 <td data-label="Holder">{p.holder || '—'}</td>
                 <td className="num" data-label="Sum Assured">{formatINR(p.sumAssured)}</td>
