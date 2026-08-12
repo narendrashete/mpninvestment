@@ -6,6 +6,7 @@ client/dist/
 data/*.json
 data/*.bak*
 data/health-docs/
+data/lic-docs/
 certs/*.pem
 .env
 

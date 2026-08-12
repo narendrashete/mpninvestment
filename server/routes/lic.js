@@ -1,9 +1,26 @@
 import { Router } from 'express';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { mkdirSync, unlink, createReadStream, existsSync, writeFileSync, statSync } from 'node:fs';
+import multer from 'multer';
 import db, { newId } from '../db.js';
 import { daysToMaturity } from '../services/roi.js';
-import { assertDemoLimit } from '../demoLimits.js';
+import { assertDemoLimit, DEMO_LIMITS } from '../demoLimits.js';
 
 const router = Router();
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const docsDir = join(__dirname, '..', '..', 'data', 'lic-docs');
+mkdirSync(docsDir, { recursive: true });
+const docPath = (id) => join(docsDir, `${id}.pdf`);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    cb(null, file.mimetype === 'application/pdf');
+  }
+});
 
 const STATUSES = ['active', 'matured', 'surrendered', 'lapsed'];
 
@@ -87,6 +104,8 @@ router.post('/', async (req, res) => {
     policy.id = newId('lic');
     policy.group = group;
     policy.status ||= 'active';
+    policy.documentOriginalName = null;
+    policy.documentUploadedAt = null;
     db.data.licPolicies.push(policy);
     await db.write();
     res.status(201).json({ ...policy, daysToNextPremium: daysToMaturity(policy.nextPremiumDueDate) });
@@ -117,7 +136,51 @@ router.delete('/:id', async (req, res) => {
   db.data.licPolicies.splice(idx, 1);
   db.data.licPremiums = db.data.licPremiums.filter(x => x.policyId !== req.params.id);
   await db.write();
+  unlink(docPath(req.params.id), () => {});
   res.json({ ok: true });
+});
+
+router.post('/:id/document', upload.single('document'), async (req, res) => {
+  const policy = db.data.licPolicies.find(p => p.id === req.params.id && p.group === req.user.group);
+  if (!policy) return res.status(404).json({ error: 'LIC policy not found' });
+  if (!req.file) return res.status(400).json({ error: 'A PDF file is required' });
+  if (req.user.group === 'DEMO') {
+    const existingBytes = db.data.licPolicies
+      .filter(p => p.group === 'DEMO' && p.id !== policy.id && p.documentOriginalName)
+      .reduce((a, p) => {
+        const path = docPath(p.id);
+        return a + (existsSync(path) ? statSync(path).size : 0);
+      }, 0);
+    if (existingBytes + req.file.buffer.length > DEMO_LIMITS.licDocBytes) {
+      const capMb = Math.round(DEMO_LIMITS.licDocBytes / (1024 * 1024));
+      return res.status(429).json({ error: `Demo storage limit reached (${capMb}MB of uploaded PDFs) — the demo sandbox resets nightly, try again after the reset.` });
+    }
+  }
+  writeFileSync(docPath(policy.id), req.file.buffer);
+  policy.documentOriginalName = req.file.originalname;
+  policy.documentUploadedAt = new Date().toISOString();
+  await db.write();
+  res.status(201).json({ ...policy, daysToNextPremium: daysToMaturity(policy.nextPremiumDueDate) });
+});
+
+router.get('/:id/document', (req, res) => {
+  const policy = db.data.licPolicies.find(p => p.id === req.params.id && p.group === req.user.group);
+  if (!policy || !policy.documentOriginalName) return res.status(404).json({ error: 'No document uploaded for this policy' });
+  const path = docPath(policy.id);
+  if (!existsSync(path)) return res.status(404).json({ error: 'No document uploaded for this policy' });
+  res.set('Content-Type', 'application/pdf');
+  res.set('Content-Disposition', `inline; filename="${policy.documentOriginalName.replace(/"/g, '')}"`);
+  createReadStream(path).pipe(res);
+});
+
+router.delete('/:id/document', async (req, res) => {
+  const policy = db.data.licPolicies.find(p => p.id === req.params.id && p.group === req.user.group);
+  if (!policy) return res.status(404).json({ error: 'LIC policy not found' });
+  policy.documentOriginalName = null;
+  policy.documentUploadedAt = null;
+  await db.write();
+  unlink(docPath(policy.id), () => {});
+  res.json({ ...policy, daysToNextPremium: daysToMaturity(policy.nextPremiumDueDate) });
 });
 
 // Log a premium payment. Does not touch nextPremiumDueDate — that stays a

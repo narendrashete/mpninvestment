@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { formatINR, formatDate, daysLeftClass, daysLeftLabel } from '../lib/format.js';
@@ -14,6 +14,8 @@ export default function LicPolicyDetail() {
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
   const [loggingPremium, setLoggingPremium] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInput = useRef(null);
 
   const load = useCallback(
     () => api.licPolicy(id).then(setPolicy).catch(err => setError(err.message)),
@@ -33,6 +35,30 @@ export default function LicPolicyDetail() {
   const delPremium = async (payment) => {
     if (!window.confirm(`Remove the ${formatINR(payment.amount)} payment logged on ${formatDate(payment.paidOn)}?`)) return;
     await api.deleteLicPremium(policy.id, payment.id);
+    load();
+  };
+
+  const pickFile = () => fileInput.current?.click();
+
+  const uploadFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      await api.uploadLicDocument(policy.id, file);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeDocument = async () => {
+    if (!window.confirm('Remove the uploaded policy document? You can upload a new one afterwards.')) return;
+    await api.deleteLicDocument(policy.id);
     load();
   };
 
@@ -82,6 +108,40 @@ export default function LicPolicyDetail() {
           <dt>Maturity Date</dt><dd>{formatDate(policy.maturityDate)}</dd>
           <dt>Notes</dt><dd>{policy.notes || '—'}</dd>
         </dl>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3>Policy Document</h3>
+        {policy.documentOriginalName ? (
+          <div className="toolbar" style={{ marginTop: 4 }}>
+            <a href={api.licDocumentUrl(policy.id)} target="_blank" rel="noreferrer">
+              📄 {policy.documentOriginalName}
+            </a>
+            <span className="muted" style={{ fontSize: 12.5 }}>
+              Uploaded {formatDate(policy.documentUploadedAt)}
+            </span>
+            <div className="spacer" />
+            <button className="btn btn-sm" onClick={pickFile} disabled={uploading}>
+              {uploading ? 'Uploading…' : 'Replace'}
+            </button>
+            <button className="btn btn-sm btn-danger" onClick={removeDocument}>Remove</button>
+          </div>
+        ) : (
+          <div className="toolbar" style={{ marginTop: 4 }}>
+            <span className="muted">No document uploaded yet.</span>
+            <div className="spacer" />
+            <button className="btn btn-primary btn-sm" onClick={pickFile} disabled={uploading}>
+              {uploading ? 'Uploading…' : 'Upload PDF'}
+            </button>
+          </div>
+        )}
+        <input
+          ref={fileInput}
+          type="file"
+          accept="application/pdf"
+          onChange={uploadFile}
+          style={{ display: 'none' }}
+        />
       </div>
 
       <div className="section-title">
