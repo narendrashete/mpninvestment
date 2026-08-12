@@ -51,6 +51,20 @@ export const api = {
   deleteLicPolicy: (id) => request(`/api/lic/${id}`, { method: 'DELETE' }),
   addLicPremium: (id, body) => request(`/api/lic/${id}/premiums`, { method: 'POST', body: JSON.stringify(body) }),
   deleteLicPremium: (id, paymentId) => request(`/api/lic/${id}/premiums/${paymentId}`, { method: 'DELETE' }),
+  uploadLicDocument: async (id, file) => {
+    const form = new FormData();
+    form.append('document', file);
+    const res = await fetch(`/api/lic/${id}/document`, { method: 'POST', body: form });
+    if (res.status === 401) {
+      window.location.href = '/login';
+      return new Promise(() => {});
+    }
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+    return data;
+  },
+  deleteLicDocument: (id) => request(`/api/lic/${id}/document`, { method: 'DELETE' }),
+  licDocumentUrl: (id) => `/api/lic/${id}/document`,
 
   healthPolicies: () => request('/api/health'),
   healthPolicy: (id) => request(`/api/health/${id}`),
