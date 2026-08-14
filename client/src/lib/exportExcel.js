@@ -1,6 +1,9 @@
 import ExcelJS from 'exceljs';
 import { TYPE_LABELS } from './format.js';
-import { reportHeading, totalsOf, licTotals, reportStamp, fileStamp, saveBlob } from './reportData.js';
+import {
+  reportHeading, totalsOf, licTotals, healthTotals, HEALTH_TYPE_LABELS,
+  reportStamp, fileStamp, saveBlob
+} from './reportData.js';
 
 const MONEY = '₹#,##0';
 const DATE = 'dd-mmm-yyyy';
@@ -51,6 +54,27 @@ const LIC_COLUMNS = [
   { header: 'Maturity', width: 13, numFmt: DATE, get: p => asDate(p.maturityDate) },
   { header: 'Next Premium Due', width: 15, numFmt: DATE, get: p => asDate(p.nextPremiumDueDate) },
   { header: 'Due In (Days)', width: 11, align: 'right', get: p => p.daysToNextPremium ?? null },
+  { header: 'Document', width: 26, get: p => p.documentOriginalName || '' },
+  { header: 'Notes', width: 34, get: p => p.notes || '' }
+];
+
+// Health policies — cover, deductible, premium and the renewal date.
+const HEALTH_COLUMNS = [
+  { header: 'Policy No.', width: 16, get: p => p.policyNo || '', total: t => `Total (${t.count})` },
+  { header: 'Insurer', width: 20, get: p => p.insurerName || '' },
+  { header: 'Plan Name', width: 26, get: p => p.planName || '' },
+  { header: 'Type', width: 10, get: p => HEALTH_TYPE_LABELS[p.policyType] || p.policyType || '' },
+  { header: 'Holder', width: 14, get: p => p.holder || '' },
+  { header: 'Insured Members', width: 30, get: p => p.insuredMembers || '' },
+  { header: 'Nominee', width: 16, get: p => p.nomineeName || '' },
+  { header: 'Status', width: 11, get: p => p.status || 'active' },
+  { header: 'Sum Insured', width: 15, numFmt: MONEY, get: p => p.sumInsured ?? null, total: t => t.sumInsured },
+  { header: 'Deductible', width: 13, numFmt: MONEY, get: p => p.deductible ?? null },
+  { header: 'Premium', width: 14, numFmt: MONEY, get: p => p.premiumAmount ?? null, total: t => t.premium },
+  { header: 'Commenced', width: 13, numFmt: DATE, get: p => asDate(p.commencementDate) },
+  { header: 'Expires', width: 13, numFmt: DATE, get: p => asDate(p.expiryDate) },
+  { header: 'Renewal Due', width: 13, numFmt: DATE, get: p => asDate(p.renewalDueDate) },
+  { header: 'Due In (Days)', width: 11, align: 'right', get: p => p.daysToRenewal ?? null },
   { header: 'Document', width: 26, get: p => p.documentOriginalName || '' },
   { header: 'Notes', width: 34, get: p => p.notes || '' }
 ];
@@ -168,6 +192,18 @@ export function buildLicWorkbook({ rows, group, filters = [], now = new Date() }
   return { wb, head };
 }
 
+export function buildHealthWorkbook({ rows, group, filters = [], now = new Date() }) {
+  const { head, others } = reportHeading(group, rows);
+  const wb = newWorkbook(now);
+  buildSheet({
+    wb, sheetName: 'Health Policies', title: 'Health Insurance', head, others, now,
+    scopeLine: `${rows.length} polic${rows.length === 1 ? 'y' : 'ies'}  ·  ${filterText(filters)}`,
+    columns: HEALTH_COLUMNS, rows, totals: healthTotals(rows),
+    note: 'Health policies are tracked separately — they are not part of the Investments or Dashboard totals.'
+  });
+  return { wb, head };
+}
+
 async function download(wb, filename) {
   const buf = await wb.xlsx.writeBuffer();
   saveBlob(
@@ -186,4 +222,10 @@ export async function downloadLicExcel(opts) {
   const now = opts.now || new Date();
   const { wb, head } = buildLicWorkbook({ ...opts, now });
   await download(wb, `LIC-Policies_${head}_${fileStamp(now)}.xlsx`);
+}
+
+export async function downloadHealthExcel(opts) {
+  const now = opts.now || new Date();
+  const { wb, head } = buildHealthWorkbook({ ...opts, now });
+  await download(wb, `Health-Policies_${head}_${fileStamp(now)}.xlsx`);
 }

@@ -105,6 +105,54 @@ export function licByMaturity(rows) {
   return rows.slice().sort(byDate('maturityDate'));
 }
 
+// ---- Health policies. Like LIC there's no market value — what matters is how
+// much cover each person carries (basic plus any top-up) and when it renews.
+export const HEALTH_TYPE_LABELS = { BASIC: 'Basic', TOPUP: 'Top-up' };
+
+export function healthTotals(rows) {
+  return {
+    count: rows.length,
+    sumInsured: rows.reduce((a, r) => a + (r.sumInsured || 0), 0),
+    premium: rows.reduce((a, r) => a + (r.premiumAmount || 0), 0)
+  };
+}
+
+export function healthByHolder(group, rows) {
+  const { head } = reportHeading(group, rows);
+  return [...new Set(rows.map(r => r.holder || 'Unknown'))]
+    .sort((a, b) => (a === head ? -1 : b === head ? 1 : a.localeCompare(b)))
+    .map(h => {
+      const own = rows.filter(r => (r.holder || 'Unknown') === h);
+      return {
+        holder: h,
+        isHead: h === head,
+        basic: healthTotals(own.filter(r => r.policyType === 'BASIC')).sumInsured,
+        topup: healthTotals(own.filter(r => r.policyType === 'TOPUP')).sumInsured,
+        ...healthTotals(own)
+      };
+    });
+}
+
+export function healthByType(rows) {
+  return ['BASIC', 'TOPUP']
+    .filter(t => rows.some(r => r.policyType === t))
+    .map(type => ({
+      type,
+      label: HEALTH_TYPE_LABELS[type],
+      ...healthTotals(rows.filter(r => r.policyType === type))
+    }));
+}
+
+export function healthByInsurer(rows) {
+  return [...new Set(rows.map(r => r.insurerName || 'Unknown'))]
+    .sort()
+    .map(insurer => ({ insurer, ...healthTotals(rows.filter(r => (r.insurerName || 'Unknown') === insurer)) }));
+}
+
+export function healthByRenewal(rows) {
+  return rows.slice().sort(byDate('renewalDueDate'));
+}
+
 export function reportStamp(now = new Date()) {
   return now.toLocaleString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric',

@@ -4,7 +4,8 @@ import { TYPE_LABELS } from './format.js';
 import {
   reportHeading, totalsOf, categoryBreakdown, investorBreakdown, fdsByMaturity,
   licTotals, licByHolder, licByPlan, licByNextPremium, licByMaturity,
-  reportStamp, fileStamp, saveBlob
+  healthTotals, healthByHolder, healthByType, healthByInsurer, healthByRenewal,
+  HEALTH_TYPE_LABELS, reportStamp, fileStamp, saveBlob
 } from './reportData.js';
 
 // A4 portrait, laid out as two columns so the whole reckoner lands on one page:
@@ -328,6 +329,114 @@ export function buildLicPdf({ rows, group, filters = [], now = new Date() }) {
 
   drawFooter(doc, 'InvestTrack · LIC policies are tracked separately and are not part of the Investments or Dashboard totals · * group head · "With GA" adds the guaranteed addition to the sum assured');
   return { doc, head };
+}
+
+// Health policies: cover per person (basic plus any top-up) and the renewal
+// dates that must not be missed. Same one-column shape as the LIC reckoner.
+export function buildHealthPdf({ rows, group, filters = [], now = new Date() }) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const { head, others } = reportHeading(group, rows);
+  const totals = healthTotals(rows);
+  const FULL_W = PAGE_W - 2 * M;
+  const renewals = healthByRenewal(rows);
+  const nextRenewal = renewals.find(p => p.renewalDueDate);
+
+  drawHeader(doc, {
+    title: 'Health Insurance Ready Reckoner',
+    head, others, now,
+    scope: scopeLine(rows.length, 'policy', filters).replace('policys', 'policies')
+  });
+  let y = drawTiles(doc, [
+    ['Policies', String(totals.count), INK],
+    ['Total Sum Insured', `Rs ${money(totals.sumInsured)}`, INK],
+    ['Annual Premium', `Rs ${money(totals.premium)}`, INK],
+    ['Next Renewal Due', nextRenewal ? `${shortDate(nextRenewal.renewalDueDate)} · ${dueLabel(nextRenewal.daysToRenewal)}` : '—',
+      nextRenewal ? dueColor(nextRenewal.daysToRenewal) : MUTED]
+  ], 25);
+
+  // ---- Who is covered for how much, and split by basic vs top-up
+  const holderRows = healthByHolder(group, rows);
+  let ly = sectionTitle(doc, LEFT_X, y + 8, 'Cover per person');
+  ly = table(doc, {
+    startY: ly, margin: { left: LEFT_X }, tableWidth: COL_W,
+    head: [['Insured', '#', 'Basic', 'Top-up', 'Total Cover']],
+    body: holderRows.map(h => [
+      h.holder + (h.isHead ? ' *' : ''), h.count,
+      h.basic ? money(h.basic) : '—', h.topup ? money(h.topup) : '—', money(h.sumInsured)
+    ]),
+    foot: [[
+      'All insured', totals.count,
+      money(holderRows.reduce((a, h) => a + h.basic, 0)),
+      money(holderRows.reduce((a, h) => a + h.topup, 0)),
+      money(totals.sumInsured)
+    ]],
+    columnStyles: {
+      0: { cellWidth: 22, fontStyle: 'bold' }, 1: { cellWidth: 7, halign: 'right' },
+      2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right', fontStyle: 'bold' }
+    }
+  });
+
+  let ry = sectionTitle(doc, RIGHT_X, y + 8, 'Cover by policy type');
+  ry = table(doc, {
+    startY: ry, margin: { left: RIGHT_X, right: M }, tableWidth: COL_W,
+    head: [['Type', '#', 'Sum Insured', 'Premium']],
+    body: healthByType(rows).map(t => [t.label, t.count, money(t.sumInsured), money(t.premium)]),
+    foot: [['All types', totals.count, money(totals.sumInsured), money(totals.premium)]],
+    columnStyles: {
+      0: { cellWidth: 26, fontStyle: 'bold' }, 1: { cellWidth: 8, halign: 'right' },
+      2: { halign: 'right' }, 3: { halign: 'right' }
+    }
+  });
+
+  // ---- Every policy, ordered by the renewal that falls due next
+  let by = sectionTitle(doc, LEFT_X, Math.max(ly, ry) + 8, 'Policies by renewal due');
+  by = table(doc, {
+    startY: by, margin: { left: M, right: M }, tableWidth: FULL_W,
+    head: [['Policy No.', 'Insurer', 'Plan', 'Type', 'Holder', 'Insured Members', 'Sum Insured', 'Deductible', 'Premium', 'Renewal Due', 'In']],
+    body: renewals.map(p => [
+      p.policyNo || '—', p.insurerName || '—', p.planName || '—',
+      HEALTH_TYPE_LABELS[p.policyType] || p.policyType || '—', p.holder || '—',
+      p.insuredMembers || '—', money(p.sumInsured),
+      p.deductible ? money(p.deductible) : '—', money(p.premiumAmount),
+      shortDate(p.renewalDueDate), dueLabel(p.daysToRenewal)
+    ]),
+    foot: [[`Total (${totals.count})`, '', '', '', '', '', money(totals.sumInsured), '', money(totals.premium), '', '']],
+    columnStyles: {
+      0: { cellWidth: 19 }, 1: { cellWidth: 21 }, 2: { cellWidth: 24 }, 3: { cellWidth: 10 },
+      4: { cellWidth: 14 }, 5: { cellWidth: 31 }, 6: { cellWidth: 17, halign: 'right' },
+      7: { cellWidth: 15, halign: 'right' }, 8: { cellWidth: 15, halign: 'right' },
+      9: { cellWidth: 17, halign: 'center' }, 10: { cellWidth: 11, halign: 'right' }
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 10) {
+        const days = renewals[data.row.index].daysToRenewal;
+        data.cell.styles.textColor = dueColor(days);
+        if (days != null && days <= 30) data.cell.styles.fontStyle = 'bold';
+      }
+    }
+  });
+
+  // ---- How the cover is spread across insurers
+  by = sectionTitle(doc, LEFT_X, by + 8, 'Cover by insurer');
+  table(doc, {
+    startY: by, margin: { left: LEFT_X }, tableWidth: COL_W,
+    head: [['Insurer', '#', 'Sum Insured', 'Premium']],
+    body: healthByInsurer(rows).map(i => [i.insurer, i.count, money(i.sumInsured), money(i.premium)]),
+    foot: [['All insurers', totals.count, money(totals.sumInsured), money(totals.premium)]],
+    columnStyles: {
+      0: { cellWidth: 30, fontStyle: 'bold' }, 1: { cellWidth: 8, halign: 'right' },
+      2: { halign: 'right' }, 3: { halign: 'right' }
+    }
+  });
+
+  drawFooter(doc, 'InvestTrack · health policies are tracked separately and are not part of the Investments or Dashboard totals · * group head · a negative "In" is days overdue');
+  return { doc, head };
+}
+
+export function downloadHealthPdf(opts) {
+  const now = opts.now || new Date();
+  const { doc, head } = buildHealthPdf({ ...opts, now });
+  saveBlob(doc.output('blob'), `Health-Reckoner_${head}_${fileStamp(now)}.pdf`);
 }
 
 export function downloadLicPdf(opts) {
