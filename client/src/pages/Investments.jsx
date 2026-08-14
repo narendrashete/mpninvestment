@@ -8,17 +8,21 @@ export default function Investments() {
   const navigate = useNavigate();
   const [list, setList] = useState(null);
   const [error, setError] = useState(null);
+  const [group, setGroup] = useState(null);
   const [typeFilter, setTypeFilter] = useState('');
   const [holderFilter, setHolderFilter] = useState('');
   const [search, setSearch] = useState('');
   const [missingNomineeOnly, setMissingNomineeOnly] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [exporting, setExporting] = useState(null);
+  const [exportError, setExportError] = useState(null);
 
   // Live instruments only — redeemed/renewed records live on the Redeemed / Renewed tab.
   const load = () => api.investments()
     .then(rows => setList(rows.filter(r => !r.closed)))
     .catch(err => setError(err.message));
   useEffect(() => { load(); }, []);
+  useEffect(() => { api.me().then(me => setGroup(me?.group || null)).catch(() => {}); }, []);
 
   const holders = useMemo(
     () => [...new Set((list || []).map(i => i.holder).filter(Boolean))].sort(),
@@ -44,12 +48,44 @@ export default function Investments() {
 
   const missingNomineeCount = useMemo(() => (list || []).filter(i => !i.nominee).length, [list]);
 
+  // Spelled out on the report so a printed copy says what it is a view of.
+  const filterLabels = useMemo(() => {
+    const out = [];
+    if (typeFilter) out.push(`Type: ${typeLabel(typeFilter)}`);
+    if (holderFilter) out.push(`Holder: ${holderFilter}`);
+    if (search) out.push(`Search: "${search}"`);
+    if (missingNomineeOnly) out.push('Missing nominee only');
+    return out;
+  }, [typeFilter, holderFilter, search, missingNomineeOnly]);
+
+  const runExport = async (kind) => {
+    setExporting(kind);
+    setExportError(null);
+    try {
+      const opts = { rows: filtered, group, filters: filterLabels };
+      if (kind === 'excel') {
+        const { downloadInvestmentsExcel } = await import('../lib/exportExcel.js');
+        await downloadInvestmentsExcel(opts);
+      } else {
+        const { downloadInvestmentsPdf } = await import('../lib/exportPdf.js');
+        downloadInvestmentsPdf(opts);
+      }
+    } catch (err) {
+      // Keep the list on screen — a failed download shouldn't take the page down.
+      setExportError(`Export failed: ${err.message}`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
   if (error) return <div className="error-banner">{error}</div>;
   if (!list) return <p className="muted">Loading…</p>;
 
   return (
     <>
       <div className="page-title"><h1>Investments</h1></div>
+
+      {exportError && <div className="error-banner">{exportError}</div>}
 
       <div className="toolbar">
         <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
@@ -69,6 +105,22 @@ export default function Investments() {
         <span className="muted" style={{ fontSize: 13.5 }}>
           {filtered.length} shown · {formatINR(totals.invested)} → {formatINR(totals.value)}
         </span>
+        <button
+          className="btn"
+          disabled={!filtered.length || exporting != null}
+          onClick={() => runExport('excel')}
+          title="Download the rows shown above as a formatted Excel sheet"
+        >
+          {exporting === 'excel' ? 'Preparing…' : '⤓ Excel'}
+        </button>
+        <button
+          className="btn"
+          disabled={!filtered.length || exporting != null}
+          onClick={() => runExport('pdf')}
+          title="Download a one-page ready reckoner — investor-wise, category-wise, FDs by maturity"
+        >
+          {exporting === 'pdf' ? 'Preparing…' : '⤓ PDF'}
+        </button>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Add Investment</button>
       </div>
 

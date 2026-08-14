@@ -13,6 +13,7 @@ async function request(url, options = {}) {
 }
 
 export const api = {
+  me: () => request('/api/auth/me'),
   dashboard: (windowDays) =>
     request(`/api/investments/dashboard${windowDays ? `?windowDays=${windowDays}` : ''}`),
   investments: (params = {}) => {
