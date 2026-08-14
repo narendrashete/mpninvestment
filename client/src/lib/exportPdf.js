@@ -2,8 +2,9 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { TYPE_LABELS } from './format.js';
 import {
-  reportHeading, totalsOf, categoryBreakdown, investorBreakdown,
-  fdsByMaturity, reportStamp, fileStamp, saveBlob
+  reportHeading, totalsOf, categoryBreakdown, investorBreakdown, fdsByMaturity,
+  licTotals, licByHolder, licByPlan, licByNextPremium, licByMaturity,
+  reportStamp, fileStamp, saveBlob
 } from './reportData.js';
 
 // A4 portrait, laid out as two columns so the whole reckoner lands on one page:
@@ -54,12 +55,12 @@ function sectionTitle(doc, x, y, title) {
   return y + 2.2;
 }
 
-function drawHeader(doc, { head, others, rows, filters, now }) {
+function drawHeader(doc, { title, head, others, scope, now }) {
   doc.setFillColor(15, 23, 42);
   doc.rect(0, 0, PAGE_W, 21, 'F');
 
   doc.setTextColor(255, 255, 255).setFont('helvetica', 'bold').setFontSize(13);
-  doc.text('Investment Ready Reckoner', M, 9);
+  doc.text(title, M, 9);
 
   doc.setFontSize(10.5);
   doc.text(head, M, 16);
@@ -71,18 +72,13 @@ function drawHeader(doc, { head, others, rows, filters, now }) {
   doc.setFontSize(7).setTextColor(226, 232, 240);
   doc.text(`Generated ${reportStamp(now)}`, PAGE_W - M, 9, { align: 'right' });
   doc.setTextColor(148, 163, 184);
-  const scope = `${rows.length} live investment${rows.length === 1 ? '' : 's'}`
-    + (filters.length ? ` · ${filters.join(' · ')}` : ' · no filters');
   doc.text(scope, PAGE_W - M, 16, { align: 'right' });
 }
 
-function drawTiles(doc, totals, y) {
-  const tiles = [
-    ['Amount Invested', `Rs ${money(totals.invested)}`, INK],
-    ['Current Value', `Rs ${money(totals.value)}`, INK],
-    ['Gain / Loss', `Rs ${money(totals.gain)}`, totals.gain >= 0 ? GREEN : RED],
-    ['Overall Return', pct(totals.simpleReturn), totals.gain >= 0 ? GREEN : RED]
-  ];
+const scopeLine = (count, noun, filters) =>
+  `${count} ${noun}${count === 1 ? '' : 's'}` + (filters.length ? ` · ${filters.join(' · ')}` : ' · no filters');
+
+function drawTiles(doc, tiles, y) {
   const w = (PAGE_W - 2 * M - 3 * 3) / 4;
   tiles.forEach(([label, value, color], i) => {
     const x = M + i * (w + 3);
@@ -114,13 +110,34 @@ function table(doc, opts) {
   return doc.lastAutoTable.finalY;
 }
 
+function drawFooter(doc, note) {
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(...RULE).setLineWidth(0.2);
+    doc.line(M, PAGE_H - 10, PAGE_W - M, PAGE_H - 10);
+    doc.setFont('helvetica', 'normal').setFontSize(6).setTextColor(...MUTED);
+    doc.text(note, M, PAGE_H - 6.5);
+    doc.text(`Page ${p} of ${pages}`, PAGE_W - M, PAGE_H - 6.5, { align: 'right' });
+  }
+}
+
 export function buildInvestmentsPdf({ rows, group, filters = [], now = new Date() }) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const { head, others } = reportHeading(group, rows);
   const totals = totalsOf(rows);
 
-  drawHeader(doc, { head, others, rows, filters, now });
-  let y = drawTiles(doc, totals, 25);
+  drawHeader(doc, {
+    title: 'Investment Ready Reckoner',
+    head, others, now,
+    scope: scopeLine(rows.length, 'live investment', filters)
+  });
+  let y = drawTiles(doc, [
+    ['Amount Invested', `Rs ${money(totals.invested)}`, INK],
+    ['Current Value', `Rs ${money(totals.value)}`, INK],
+    ['Gain / Loss', `Rs ${money(totals.gain)}`, totals.gain >= 0 ? GREEN : RED],
+    ['Overall Return', pct(totals.simpleReturn), totals.gain >= 0 ? GREEN : RED]
+  ], 25);
 
   // ---- Left column: category totals, investor split, then the non-FD holdings
   let ly = sectionTitle(doc, LEFT_X, y + 8, 'Category summary');
@@ -209,21 +226,114 @@ export function buildInvestmentsPdf({ rows, group, filters = [], now = new Date(
     });
   }
 
-  // ---- Footer on every page
-  const pages = doc.getNumberOfPages();
-  for (let p = 1; p <= pages; p++) {
-    doc.setPage(p);
-    doc.setDrawColor(...RULE).setLineWidth(0.2);
-    doc.line(M, PAGE_H - 10, PAGE_W - M, PAGE_H - 10);
-    doc.setFont('helvetica', 'normal').setFontSize(6).setTextColor(...MUTED);
-    doc.text(
-      'InvestTrack · excludes redeemed / renewed instruments · * group head · returns are value vs invested · a negative "Due" is days overdue',
-      M, PAGE_H - 6.5
-    );
-    doc.text(`Page ${p} of ${pages}`, PAGE_W - M, PAGE_H - 6.5, { align: 'right' });
-  }
-
+  drawFooter(doc, 'InvestTrack · excludes redeemed / renewed instruments · * group head · returns are value vs invested · a negative "Due" is days overdue');
   return { doc, head };
+}
+
+// LIC policies carry no market value, so this reckoner is about cover, premium
+// outgo and the two dates that matter — next premium and maturity. Far fewer
+// rows than the investments report, so it runs full width in one column.
+export function buildLicPdf({ rows, group, filters = [], now = new Date() }) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const { head, others } = reportHeading(group, rows);
+  const totals = licTotals(rows);
+  const FULL_W = PAGE_W - 2 * M;
+  const nextDue = licByNextPremium(rows).find(p => p.nextPremiumDueDate);
+
+  drawHeader(doc, {
+    title: 'LIC Policy Ready Reckoner',
+    head, others, now,
+    scope: scopeLine(rows.length, 'policy', filters).replace('policys', 'policies')
+  });
+  let y = drawTiles(doc, [
+    ['Policies', String(totals.count), INK],
+    ['Total Sum Assured', `Rs ${money(totals.sumAssured)}`, INK],
+    ['Instalment Premium', `Rs ${money(totals.premium)}`, INK],
+    ['Next Premium Due', nextDue ? `${shortDate(nextDue.nextPremiumDueDate)} · ${dueLabel(nextDue.daysToNextPremium)}` : '—',
+      nextDue ? dueColor(nextDue.daysToNextPremium) : MUTED]
+  ], 25);
+
+  // ---- Investor and plan splits, side by side
+  const holderRows = licByHolder(group, rows);
+  let ly = sectionTitle(doc, LEFT_X, y + 8, 'Investor-wise cover');
+  ly = table(doc, {
+    startY: ly, margin: { left: LEFT_X }, tableWidth: COL_W,
+    head: [['Investor', '#', 'Sum Assured', 'Premium']],
+    body: holderRows.map(h => [h.holder + (h.isHead ? ' *' : ''), h.count, money(h.sumAssured), money(h.premium)]),
+    foot: [['All investors', totals.count, money(totals.sumAssured), money(totals.premium)]],
+    columnStyles: {
+      0: { cellWidth: 27, fontStyle: 'bold' }, 1: { cellWidth: 8, halign: 'right' },
+      2: { halign: 'right' }, 3: { halign: 'right' }
+    }
+  });
+
+  let ry = sectionTitle(doc, RIGHT_X, y + 8, 'Plan-wise cover');
+  ry = table(doc, {
+    startY: ry, margin: { left: RIGHT_X, right: M }, tableWidth: COL_W,
+    head: [['Plan', '#', 'Sum Assured', 'Premium']],
+    body: licByPlan(rows).map(p => [p.plan, p.count, money(p.sumAssured), money(p.premium)]),
+    foot: [['All plans', totals.count, money(totals.sumAssured), money(totals.premium)]],
+    columnStyles: {
+      0: { cellWidth: 33, fontStyle: 'bold' }, 1: { cellWidth: 8, halign: 'right' },
+      2: { halign: 'right' }, 3: { halign: 'right' }
+    }
+  });
+
+  // ---- Every policy, ordered by the premium that falls due next
+  const due = licByNextPremium(rows);
+  let by = sectionTitle(doc, LEFT_X, Math.max(ly, ry) + 8, 'Policies by next premium due');
+  by = table(doc, {
+    startY: by, margin: { left: M, right: M }, tableWidth: FULL_W,
+    head: [['Policy No.', 'Plan', 'Holder', 'Status', 'Sum Assured', 'Premium', 'Term', 'Commenced', 'Matures', 'Next Due', 'In']],
+    body: due.map(p => [
+      p.policyNo || '—', p.planName || '—', p.holder || '—', p.status || 'active',
+      money(p.sumAssured), money(p.instalmentPremium),
+      p.policyTermYears == null ? '—' : `${p.policyTermYears}y`,
+      shortDate(p.commencementDate), shortDate(p.maturityDate),
+      shortDate(p.nextPremiumDueDate), dueLabel(p.daysToNextPremium)
+    ]),
+    foot: [[`Total (${totals.count})`, '', '', '', money(totals.sumAssured), money(totals.premium), '', '', '', '', '']],
+    columnStyles: {
+      0: { cellWidth: 21 }, 1: { cellWidth: 33 }, 2: { cellWidth: 17 }, 3: { cellWidth: 13 },
+      4: { cellWidth: 20, halign: 'right' }, 5: { cellWidth: 18, halign: 'right' },
+      6: { cellWidth: 10, halign: 'right' }, 7: { cellWidth: 17, halign: 'center' },
+      8: { cellWidth: 17, halign: 'center' }, 9: { cellWidth: 17, halign: 'center' },
+      10: { cellWidth: 11, halign: 'right' }
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 10) {
+        const days = due[data.row.index].daysToNextPremium;
+        data.cell.styles.textColor = dueColor(days);
+        if (days != null && days <= 30) data.cell.styles.fontStyle = 'bold';
+      }
+    }
+  });
+
+  // ---- What pays out, and when
+  const maturing = licByMaturity(rows);
+  by = sectionTitle(doc, LEFT_X, by + 8, 'Maturity ladder');
+  table(doc, {
+    startY: by, margin: { left: LEFT_X }, tableWidth: COL_W,
+    head: [['Policy No.', 'Holder', 'Matures', 'Sum Assured', 'With GA']],
+    body: maturing.map(p => [
+      p.policyNo || '—', p.holder || '—', shortDate(p.maturityDate),
+      money(p.sumAssured), money((p.sumAssured || 0) + (p.guaranteedAddition || 0))
+    ]),
+    foot: [[`Total (${totals.count})`, '', '', money(totals.sumAssured), money(totals.payout)]],
+    columnStyles: {
+      0: { cellWidth: 22 }, 1: { cellWidth: 16 }, 2: { cellWidth: 15, halign: 'center' },
+      3: { cellWidth: 21, halign: 'right' }, 4: { cellWidth: 21, halign: 'right' }
+    }
+  });
+
+  drawFooter(doc, 'InvestTrack · LIC policies are tracked separately and are not part of the Investments or Dashboard totals · * group head · "With GA" adds the guaranteed addition to the sum assured');
+  return { doc, head };
+}
+
+export function downloadLicPdf(opts) {
+  const now = opts.now || new Date();
+  const { doc, head } = buildLicPdf({ ...opts, now });
+  saveBlob(doc.output('blob'), `LIC-Reckoner_${head}_${fileStamp(now)}.pdf`);
 }
 
 export function downloadInvestmentsPdf(opts) {

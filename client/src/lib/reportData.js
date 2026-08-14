@@ -64,6 +64,47 @@ export function fdsByMaturity(rows) {
     .sort((a, b) => String(a.maturityDate || '9999').localeCompare(String(b.maturityDate || '9999')));
 }
 
+// ---- LIC policies. No current value or ROI (see CLAUDE.md), so these report on
+// cover, premium outgo and the two dates that matter: next premium and maturity.
+export function licTotals(rows) {
+  const num = (r, f) => r[f] || 0;
+  return {
+    count: rows.length,
+    sumAssured: rows.reduce((a, r) => a + num(r, 'sumAssured'), 0),
+    premium: rows.reduce((a, r) => a + num(r, 'instalmentPremium'), 0),
+    payout: rows.reduce((a, r) => a + num(r, 'sumAssured') + num(r, 'guaranteedAddition'), 0)
+  };
+}
+
+export function licByHolder(group, rows) {
+  const { head } = reportHeading(group, rows);
+  return [...new Set(rows.map(r => r.holder || 'Unknown'))]
+    .sort((a, b) => (a === head ? -1 : b === head ? 1 : a.localeCompare(b)))
+    .map(h => ({
+      holder: h,
+      isHead: h === head,
+      ...licTotals(rows.filter(r => (r.holder || 'Unknown') === h))
+    }));
+}
+
+export function licByPlan(rows) {
+  return [...new Set(rows.map(r => r.planName || 'Unknown'))]
+    .sort()
+    .map(plan => ({ plan, ...licTotals(rows.filter(r => (r.planName || 'Unknown') === plan)) }));
+}
+
+// Undated policies sort last in both ladders — a missing date shouldn't look urgent.
+const byDate = (field) => (a, b) =>
+  String(a[field] || '9999').localeCompare(String(b[field] || '9999'));
+
+export function licByNextPremium(rows) {
+  return rows.slice().sort(byDate('nextPremiumDueDate'));
+}
+
+export function licByMaturity(rows) {
+  return rows.slice().sort(byDate('maturityDate'));
+}
+
 export function reportStamp(now = new Date()) {
   return now.toLocaleString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric',

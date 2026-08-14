@@ -8,12 +8,16 @@ export default function LicPolicies() {
   const navigate = useNavigate();
   const [list, setList] = useState(null);
   const [error, setError] = useState(null);
+  const [group, setGroup] = useState(null);
   const [holderFilter, setHolderFilter] = useState('');
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [exporting, setExporting] = useState(null);
+  const [exportError, setExportError] = useState(null);
 
   const load = () => api.licPolicies().then(setList).catch(err => setError(err.message));
   useEffect(() => { load(); }, []);
+  useEffect(() => { api.me().then(me => setGroup(me?.group || null)).catch(() => {}); }, []);
 
   const holders = useMemo(
     () => [...new Set((list || []).map(p => p.holder).filter(Boolean))].sort(),
@@ -35,6 +39,34 @@ export default function LicPolicies() {
     instalmentPremium: filtered.reduce((a, p) => a + (p.instalmentPremium || 0), 0)
   }), [filtered]);
 
+  // Spelled out on the report so a printed copy says what it is a view of.
+  const filterLabels = useMemo(() => {
+    const out = [];
+    if (holderFilter) out.push(`Holder: ${holderFilter}`);
+    if (search) out.push(`Search: "${search}"`);
+    return out;
+  }, [holderFilter, search]);
+
+  const runExport = async (kind) => {
+    setExporting(kind);
+    setExportError(null);
+    try {
+      const opts = { rows: filtered, group, filters: filterLabels };
+      if (kind === 'excel') {
+        const { downloadLicExcel } = await import('../lib/exportExcel.js');
+        await downloadLicExcel(opts);
+      } else {
+        const { downloadLicPdf } = await import('../lib/exportPdf.js');
+        downloadLicPdf(opts);
+      }
+    } catch (err) {
+      // Keep the list on screen — a failed download shouldn't take the page down.
+      setExportError(`Export failed: ${err.message}`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
   if (error) return <div className="error-banner">{error}</div>;
   if (!list) return <p className="muted">Loading…</p>;
 
@@ -48,6 +80,8 @@ export default function LicPolicies() {
         </span>
       </div>
 
+      {exportError && <div className="error-banner">{exportError}</div>}
+
       <div className="toolbar">
         <select value={holderFilter} onChange={e => setHolderFilter(e.target.value)}>
           <option value="">All holders</option>
@@ -58,6 +92,22 @@ export default function LicPolicies() {
         <span className="muted" style={{ fontSize: 13.5 }}>
           {filtered.length} shown · Sum Assured {formatINR(totals.sumAssured)} · Premium {formatINR(totals.instalmentPremium)}
         </span>
+        <button
+          className="btn"
+          disabled={!filtered.length || exporting != null}
+          onClick={() => runExport('excel')}
+          title="Download the policies shown above as a formatted Excel sheet"
+        >
+          {exporting === 'excel' ? 'Preparing…' : '⤓ Excel'}
+        </button>
+        <button
+          className="btn"
+          disabled={!filtered.length || exporting != null}
+          onClick={() => runExport('pdf')}
+          title="Download a one-page ready reckoner — investor-wise, plan-wise, premiums and maturities by date"
+        >
+          {exporting === 'pdf' ? 'Preparing…' : '⤓ PDF'}
+        </button>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Add LIC Policy</button>
       </div>
 
