@@ -17,7 +17,12 @@ jobs:
           script: |
             set -e
             cd /opt/investment-app
-            git pull origin main
+            # `npm install` on the server rewrites client/package-lock.json, so a
+            # plain `git pull` aborts on the local change. The repo is the source
+            # of truth for tracked files; db.json and .env are untracked/ignored
+            # and survive the reset.
+            git fetch origin main
+            git reset --hard origin/main
             npm install --omit=dev
             npm --prefix client install
             npm run build
