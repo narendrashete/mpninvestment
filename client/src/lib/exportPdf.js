@@ -97,7 +97,20 @@ function drawTiles(doc, totals, y) {
 }
 
 function table(doc, opts) {
-  autoTable(doc, { ...TABLE, ...opts, styles: { ...TABLE.styles, ...(opts.styles || {}) } });
+  const columnStyles = opts.columnStyles || {};
+  const hook = opts.didParseCell;
+  autoTable(doc, {
+    ...TABLE,
+    ...opts,
+    styles: { ...TABLE.styles, ...(opts.styles || {}) },
+    didParseCell: (data) => {
+      // columnStyles only reach body cells, so a numeric column's alignment has
+      // to be copied onto its header and its totals row by hand.
+      const halign = columnStyles[data.column.index]?.halign;
+      if (halign && data.section !== 'body') data.cell.styles.halign = halign;
+      hook?.(data);
+    }
+  });
   return doc.lastAutoTable.finalY;
 }
 
