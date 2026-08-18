@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { formatINR, formatDate, daysLeftClass, daysLeftLabel } from '../lib/format.js';
 import HealthPolicyForm from '../components/HealthPolicyForm.jsx';
+import HealthPremiumForm from '../components/HealthPremiumForm.jsx';
 
 const TYPE_LABELS = { BASIC: 'Basic', TOPUP: 'Top-up' };
 const STATUS_LABELS = { active: 'Active', expired: 'Expired', lapsed: 'Lapsed' };
@@ -13,8 +14,12 @@ export default function HealthPolicyDetail() {
   const [policy, setPolicy] = useState(null);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [loggingPremium, setLoggingPremium] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef(null);
+  const attachmentInput = useRef(null);
+  const [attachTargetId, setAttachTargetId] = useState(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
   const load = useCallback(
     () => api.healthPolicy(id).then(setPolicy).catch(err => setError(err.message)),
@@ -52,6 +57,41 @@ export default function HealthPolicyDetail() {
   const removeDocument = async () => {
     if (!window.confirm('Remove the uploaded policy document? You can upload a new one afterwards.')) return;
     await api.deleteHealthDocument(policy.id);
+    load();
+  };
+
+  const delPremium = async (payment) => {
+    if (!window.confirm(`Remove the ${formatINR(payment.amount)} payment logged on ${formatDate(payment.paidOn)}?`)) return;
+    await api.deleteHealthPremium(policy.id, payment.id);
+    load();
+  };
+
+  const pickAttachment = (paymentId) => {
+    setAttachTargetId(paymentId);
+    attachmentInput.current?.click();
+  };
+
+  const uploadAttachments = async (e) => {
+    const picked = Array.from(e.target.files || []);
+    e.target.value = '';
+    const targetId = attachTargetId;
+    if (!picked.length || !targetId) return;
+    setUploadingAttachment(true);
+    setError(null);
+    try {
+      await api.addHealthPremiumAttachments(policy.id, targetId, picked);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploadingAttachment(false);
+      setAttachTargetId(null);
+    }
+  };
+
+  const removeAttachment = async (paymentId, attachmentId) => {
+    if (!window.confirm('Remove this attachment?')) return;
+    await api.deleteHealthPremiumAttachment(policy.id, paymentId, attachmentId);
     load();
   };
 
@@ -103,7 +143,7 @@ export default function HealthPolicyDetail() {
         </dl>
       </div>
 
-      <div className="card">
+      <div className="card" style={{ marginBottom: 16 }}>
         <h3>Policy Document</h3>
         {policy.documentOriginalName ? (
           <div className="toolbar" style={{ marginTop: 4 }}>
@@ -137,11 +177,85 @@ export default function HealthPolicyDetail() {
         />
       </div>
 
+      <div className="section-title">
+        <h2>Premiums Paid {policy.premiums?.length > 0 && <span className="muted">({policy.premiums.length})</span>}</h2>
+        <button className="btn btn-primary" onClick={() => setLoggingPremium(true)}>+ Log Premium Payment</button>
+      </div>
+
+      <div className="card table-cards" style={{ padding: 0 }}>
+        {!policy.premiums?.length ? (
+          <p className="empty">No premium payments logged yet — payments are tracked going forward from here.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr><th>Paid On</th><th className="num">Amount</th><th>Notes</th><th>Attachments</th><th></th></tr>
+            </thead>
+            <tbody>
+              {policy.premiums.map(pay => (
+                <tr key={pay.id}>
+                  <td data-label="Paid On">{formatDate(pay.paidOn)}</td>
+                  <td className="num" data-label="Amount">{formatINR(pay.amount)}</td>
+                  <td data-label="Notes">{pay.notes || '—'}</td>
+                  <td data-label="Attachments">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+                      {(pay.attachments || []).map(att => (
+                        <span key={att.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                          <a
+                            href={api.healthPremiumAttachmentUrl(policy.id, pay.id, att.id)}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={att.originalName}
+                          >
+                            {att.mimeType?.startsWith('image/') ? '🖼️' : '📄'}
+                          </a>
+                          <button
+                            className="btn btn-sm btn-danger"
+                            style={{ padding: '0 5px', fontSize: 11 }}
+                            title="Remove attachment"
+                            onClick={() => removeAttachment(pay.id, att.id)}
+                          >✕</button>
+                        </span>
+                      ))}
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => pickAttachment(pay.id)}
+                        disabled={uploadingAttachment}
+                      >
+                        {uploadingAttachment && attachTargetId === pay.id ? 'Uploading…' : '+ Add'}
+                      </button>
+                    </div>
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap' }} data-label="">
+                    <button className="btn btn-sm btn-danger" onClick={() => delPremium(pay)}>✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <input
+          ref={attachmentInput}
+          type="file"
+          accept="application/pdf,image/*"
+          multiple
+          onChange={uploadAttachments}
+          style={{ display: 'none' }}
+        />
+      </div>
+
       {editing && (
         <HealthPolicyForm
           initial={policy}
           onClose={() => setEditing(false)}
           onSaved={() => { setEditing(false); load(); }}
+        />
+      )}
+      {loggingPremium && (
+        <HealthPremiumForm
+          policyId={policy.id}
+          defaultAmount={policy.premiumAmount}
+          onClose={() => setLoggingPremium(false)}
+          onSaved={() => { setLoggingPremium(false); load(); }}
         />
       )}
     </>
