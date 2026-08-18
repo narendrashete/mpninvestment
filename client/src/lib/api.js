@@ -12,6 +12,19 @@ async function request(url, options = {}) {
   return data;
 }
 
+// Same response handling as request(), but for multipart bodies (file
+// uploads) where a Content-Type header must not be set manually.
+async function uploadRequest(url, form) {
+  const res = await fetch(url, { method: 'POST', body: form });
+  if (res.status === 401) {
+    window.location.href = '/login';
+    return new Promise(() => {});
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+  return data;
+}
+
 export const api = {
   me: () => request('/api/auth/me'),
   dashboard: (windowDays) =>
@@ -50,19 +63,30 @@ export const api = {
   createLicPolicy: (body) => request('/api/lic', { method: 'POST', body: JSON.stringify(body) }),
   updateLicPolicy: (id, body) => request(`/api/lic/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteLicPolicy: (id) => request(`/api/lic/${id}`, { method: 'DELETE' }),
-  addLicPremium: (id, body) => request(`/api/lic/${id}/premiums`, { method: 'POST', body: JSON.stringify(body) }),
+  // `files` (optional) are attachments — receipt PDF, cheque scan, payment
+  // screenshot — logged together with the payment in one multipart request.
+  addLicPremium: (id, body, files = []) => {
+    const form = new FormData();
+    if (body.paidOn) form.append('paidOn', body.paidOn);
+    form.append('amount', body.amount);
+    if (body.notes) form.append('notes', body.notes);
+    files.forEach(f => form.append('attachments', f));
+    return uploadRequest(`/api/lic/${id}/premiums`, form);
+  },
   deleteLicPremium: (id, paymentId) => request(`/api/lic/${id}/premiums/${paymentId}`, { method: 'DELETE' }),
-  uploadLicDocument: async (id, file) => {
+  addLicPremiumAttachments: (id, paymentId, files) => {
+    const form = new FormData();
+    files.forEach(f => form.append('attachments', f));
+    return uploadRequest(`/api/lic/${id}/premiums/${paymentId}/attachments`, form);
+  },
+  deleteLicPremiumAttachment: (id, paymentId, attachmentId) =>
+    request(`/api/lic/${id}/premiums/${paymentId}/attachments/${attachmentId}`, { method: 'DELETE' }),
+  licPremiumAttachmentUrl: (id, paymentId, attachmentId) =>
+    `/api/lic/${id}/premiums/${paymentId}/attachments/${attachmentId}`,
+  uploadLicDocument: (id, file) => {
     const form = new FormData();
     form.append('document', file);
-    const res = await fetch(`/api/lic/${id}/document`, { method: 'POST', body: form });
-    if (res.status === 401) {
-      window.location.href = '/login';
-      return new Promise(() => {});
-    }
-    const data = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
-    return data;
+    return uploadRequest(`/api/lic/${id}/document`, form);
   },
   deleteLicDocument: (id) => request(`/api/lic/${id}/document`, { method: 'DELETE' }),
   licDocumentUrl: (id) => `/api/lic/${id}/document`,
@@ -72,17 +96,10 @@ export const api = {
   createHealthPolicy: (body) => request('/api/health', { method: 'POST', body: JSON.stringify(body) }),
   updateHealthPolicy: (id, body) => request(`/api/health/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteHealthPolicy: (id) => request(`/api/health/${id}`, { method: 'DELETE' }),
-  uploadHealthDocument: async (id, file) => {
+  uploadHealthDocument: (id, file) => {
     const form = new FormData();
     form.append('document', file);
-    const res = await fetch(`/api/health/${id}/document`, { method: 'POST', body: form });
-    if (res.status === 401) {
-      window.location.href = '/login';
-      return new Promise(() => {});
-    }
-    const data = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
-    return data;
+    return uploadRequest(`/api/health/${id}/document`, form);
   },
   deleteHealthDocument: (id) => request(`/api/health/${id}/document`, { method: 'DELETE' }),
   healthDocumentUrl: (id) => `/api/health/${id}/document`
