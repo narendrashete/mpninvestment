@@ -9,13 +9,16 @@ import LicPolicies from './pages/LicPolicies.jsx';
 import LicPolicyDetail from './pages/LicPolicyDetail.jsx';
 import HealthPolicies from './pages/HealthPolicies.jsx';
 import HealthPolicyDetail from './pages/HealthPolicyDetail.jsx';
+import Vehicles from './pages/Vehicles.jsx';
+import VehicleDetail from './pages/VehicleDetail.jsx';
 
 const NAV_ITEMS = [
-  { to: '/', end: true, label: 'Dashboard', shortLabel: 'Dashboard', icon: '⌂' },
-  { to: '/investments', label: 'Investments', shortLabel: 'Investments', icon: '☰' },
+  { to: '/', end: true, label: 'Dashboard', shortLabel: 'Home', icon: '⌂' },
+  { to: '/investments', label: 'Investments', shortLabel: 'Invest', icon: '☰' },
   { to: '/closed', label: 'Redeemed / Renewed', shortLabel: 'Redeemed', icon: '↺' },
   { to: '/lic', label: 'LIC Policies', shortLabel: 'LIC', icon: '🛡' },
   { to: '/health', label: 'Health Insurance', shortLabel: 'Health', icon: '⚕' },
+  { to: '/vehicles', label: 'Vehicles', shortLabel: 'Vehicle', icon: '🚗' },
   { to: '/masters', label: 'Masters', shortLabel: 'Masters', icon: '⚙' },
 ];
 
@@ -54,6 +57,8 @@ export default function App() {
           <Route path="/lic/:id" element={<LicPolicyDetail />} />
           <Route path="/health" element={<HealthPolicies />} />
           <Route path="/health/:id" element={<HealthPolicyDetail />} />
+          <Route path="/vehicles" element={<Vehicles />} />
+          <Route path="/vehicles/:id" element={<VehicleDetail />} />
           <Route path="/masters" element={<Masters />} />
         </Routes>
       </main>

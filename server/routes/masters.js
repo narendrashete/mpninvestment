@@ -7,12 +7,22 @@ const router = Router();
 // Master pick-lists. `field` is the record field each list feeds, `collection`
 // is the array it's checked/cascaded against — which is also what a rename
 // has to cascade to and what a delete has to check for use. Holders are
-// shared across Investments and LIC policies, so both kinds using the
-// `holders` list is intentional; a rename there cascades to both collections.
+// shared across Investments, LIC, Health and Vehicles, so every one of those
+// collections is listed; a rename there cascades to all of them.
 const KINDS = {
-  holders: { field: 'holder', label: 'Holder', collections: [() => db.data.investments, () => db.data.licPolicies] },
+  holders: {
+    field: 'holder',
+    label: 'Holder',
+    collections: [
+      () => db.data.investments,
+      () => db.data.licPolicies,
+      () => db.data.healthPolicies,
+      () => db.data.vehicles
+    ]
+  },
   investmentNames: { field: 'name', label: 'Investment name', collections: [() => db.data.investments] },
-  licPlans: { field: 'planName', label: 'Plan name', collections: [() => db.data.licPolicies] }
+  licPlans: { field: 'planName', label: 'Plan name', collections: [() => db.data.licPolicies] },
+  vehicleInsurers: { field: 'insurerName', label: 'Vehicle insurer', collections: [() => db.data.vehiclePolicies] }
 };
 
 function kindOf(req, res) {
@@ -40,7 +50,8 @@ router.get('/', (req, res) => {
   res.json({
     holders: withUsage(group, 'holders'),
     investmentNames: withUsage(group, 'investmentNames'),
-    licPlans: withUsage(group, 'licPlans')
+    licPlans: withUsage(group, 'licPlans'),
+    vehicleInsurers: withUsage(group, 'vehicleInsurers')
   });
 });
 

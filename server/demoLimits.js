@@ -15,7 +15,12 @@ export const DEMO_LIMITS = {
   healthDocBytes: 100 * 1024 * 1024, // seeded baseline: 0 (demo ships with no PDFs attached)
   licDocBytes: 100 * 1024 * 1024, // seeded baseline: 0 (demo ships with no PDFs attached)
   licPremiumDocBytes: 100 * 1024 * 1024, // seeded baseline: 0 (premium receipts/cheque scans)
-  healthPremiumDocBytes: 100 * 1024 * 1024 // seeded baseline: 0 (premium receipts/cheque scans)
+  healthPremiumDocBytes: 100 * 1024 * 1024, // seeded baseline: 0 (premium receipts/cheque scans)
+  vehicles: 20, // seeded baseline: 2
+  vehiclePolicies: 60, // seeded baseline: 2 (a vehicle can hold several at once, plus renewals)
+  vehicleInsurers: 15, // seeded baseline: 2 — key must match the masters kind string
+  vehicleDocBytes: 100 * 1024 * 1024, // seeded baseline: 0 (demo ships with no PDFs attached)
+  vehiclePremiumDocBytes: 100 * 1024 * 1024 // seeded baseline: 0 (premium receipts/cheque scans)
 };
 
 // Throws once `group` is DEMO and `count` has already reached the limit for

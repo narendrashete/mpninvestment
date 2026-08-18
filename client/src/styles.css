@@ -212,6 +212,23 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; 
   .form-grid { grid-template-columns: 1fr; }
 }
 
+/* Collapsible "More details" inside an add/edit modal — the rarely-touched
+   half of a long form (chassis no., premium breakdown) stays out of the way
+   until it's wanted. Sits outside .form-grid and carries its own grid. */
+.more-details { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 12px; }
+.more-details > summary {
+  cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted);
+  list-style: none; padding: 2px 0; user-select: none;
+}
+.more-details > summary::before { content: '▸ '; }
+.more-details[open] > summary::before { content: '▾ '; }
+.more-details > summary::-webkit-details-marker { display: none; }
+.more-details .form-grid { margin-top: 12px; }
+.more-details h4 {
+  grid-column: 1 / -1; margin: 6px 0 -4px; font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+}
+
 .error-banner {
   background: #fef2f2;
   border: 1px solid #fecaca;
@@ -299,14 +316,15 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; 
   }
   .bottom-nav a {
     flex: 1;
+    min-width: 0; /* 7 tabs: let labels shrink instead of forcing the bar wider */
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 2px;
     color: #94a3b8;
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 600;
-    padding: 7px 4px 6px;
+    padding: 7px 2px 6px;
     border-radius: 10px;
   }
   .bottom-nav a .icon { font-size: 19px; line-height: 1; }

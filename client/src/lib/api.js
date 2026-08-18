@@ -123,5 +123,55 @@ export const api = {
   deleteHealthPremiumAttachment: (id, paymentId, attachmentId) =>
     request(`/api/health/${id}/premiums/${paymentId}/attachments/${attachmentId}`, { method: 'DELETE' }),
   healthPremiumAttachmentUrl: (id, paymentId, attachmentId) =>
-    `/api/health/${id}/premiums/${paymentId}/attachments/${attachmentId}`
+    `/api/health/${id}/premiums/${paymentId}/attachments/${attachmentId}`,
+
+  // Vehicles own their policies, so every policy/premium path hangs off the
+  // vehicle id — that's also what scopes them to the logged-in user's group.
+  vehicles: () => request('/api/vehicles'),
+  vehicle: (id) => request(`/api/vehicles/${id}`),
+  createVehicle: (body) => request('/api/vehicles', { method: 'POST', body: JSON.stringify(body) }),
+  updateVehicle: (id, body) => request(`/api/vehicles/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteVehicle: (id) => request(`/api/vehicles/${id}`, { method: 'DELETE' }),
+
+  createVehiclePolicy: (id, body) =>
+    request(`/api/vehicles/${id}/policies`, { method: 'POST', body: JSON.stringify(body) }),
+  updateVehiclePolicy: (id, policyId, body) =>
+    request(`/api/vehicles/${id}/policies/${policyId}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteVehiclePolicy: (id, policyId) =>
+    request(`/api/vehicles/${id}/policies/${policyId}`, { method: 'DELETE' }),
+  renewVehiclePolicy: (id, policyId, body) =>
+    request(`/api/vehicles/${id}/policies/${policyId}/renew`, { method: 'POST', body: JSON.stringify(body) }),
+
+  uploadVehicleDocument: (id, policyId, file) => {
+    const form = new FormData();
+    form.append('document', file);
+    return uploadRequest(`/api/vehicles/${id}/policies/${policyId}/document`, form);
+  },
+  deleteVehicleDocument: (id, policyId) =>
+    request(`/api/vehicles/${id}/policies/${policyId}/document`, { method: 'DELETE' }),
+  vehicleDocumentUrl: (id, policyId) => `/api/vehicles/${id}/policies/${policyId}/document`,
+
+  // `files` (optional) are attachments — receipt PDF, cheque scan, payment
+  // screenshot — logged together with the payment in one multipart request.
+  addVehiclePremium: (id, policyId, body, files = []) => {
+    const form = new FormData();
+    if (body.paidOn) form.append('paidOn', body.paidOn);
+    form.append('amount', body.amount);
+    for (const f of ['notes', 'paymentMode', 'referenceNo', 'bankName']) {
+      if (body[f]) form.append(f, body[f]);
+    }
+    files.forEach(f => form.append('attachments', f));
+    return uploadRequest(`/api/vehicles/${id}/policies/${policyId}/premiums`, form);
+  },
+  deleteVehiclePremium: (id, policyId, paymentId) =>
+    request(`/api/vehicles/${id}/policies/${policyId}/premiums/${paymentId}`, { method: 'DELETE' }),
+  addVehiclePremiumAttachments: (id, policyId, paymentId, files) => {
+    const form = new FormData();
+    files.forEach(f => form.append('attachments', f));
+    return uploadRequest(`/api/vehicles/${id}/policies/${policyId}/premiums/${paymentId}/attachments`, form);
+  },
+  deleteVehiclePremiumAttachment: (id, policyId, paymentId, attachmentId) =>
+    request(`/api/vehicles/${id}/policies/${policyId}/premiums/${paymentId}/attachments/${attachmentId}`, { method: 'DELETE' }),
+  vehiclePremiumAttachmentUrl: (id, policyId, paymentId, attachmentId) =>
+    `/api/vehicles/${id}/policies/${policyId}/premiums/${paymentId}/attachments/${attachmentId}`
 };

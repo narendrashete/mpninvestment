@@ -152,6 +152,14 @@ export default function Masters() {
           onChanged={load}
           onError={setError}
         />
+        <MasterList
+          kind="vehicleInsurers"
+          title="Vehicle Insurers"
+          placeholder="New motor insurer"
+          entries={masters.vehicleInsurers}
+          onChanged={load}
+          onError={setError}
+        />
       </div>
     </>
   );
