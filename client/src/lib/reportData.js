@@ -1,7 +1,7 @@
 // Shaping shared by the Excel and PDF exports on the Investments page. Both
 // work off the same filtered rows the table is showing, so a report can never
 // disagree with what's on screen.
-import { TYPE_LABELS } from './format.js';
+import { TYPE_LABELS, VEHICLE_CLASS_LABELS, VEHICLE_POLICY_TYPE_LABELS } from './format.js';
 
 export const CATEGORY_ORDER = ['FD', 'SHARES', 'BANK_SHARES', 'BANK_BALANCE'];
 
@@ -175,3 +175,99 @@ export function saveBlob(blob, filename) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+// ---- Vehicle policies. The page works in vehicles, but a report wants one
+// row per policy — a car with separate own-damage and third-party cover is
+// two contracts, with two insurers and two expiry dates. flattenVehicles()
+// joins each policy back to its vehicle so every table below shares one grain.
+export { VEHICLE_CLASS_LABELS, VEHICLE_POLICY_TYPE_LABELS };
+
+export function flattenVehicles(vehicles) {
+  return vehicles.flatMap(v => (v.policies || []).map(p => ({
+    ...p,
+    vehicleId: v.id,
+    registrationNo: v.registrationNo,
+    vehicleLabel: [v.make, v.model].filter(Boolean).join(' ') || '—',
+    vehicleClass: v.vehicleClass,
+    yearOfManufacture: v.yearOfManufacture,
+    fuelType: v.fuelType,
+    holder: v.holder
+  })));
+}
+
+// Only live cover counts toward the headline figures — renewed and expired
+// policies are records, not protection.
+export const activePolicies = (rows) => rows.filter(r => !r.closed);
+
+export function vehicleTotals(rows) {
+  const live = activePolicies(rows);
+  return {
+    count: rows.length,
+    activeCount: live.length,
+    vehicles: new Set(rows.map(r => r.vehicleId)).size,
+    // Third-party-only cover carries no IDV, so summing nulls away keeps a car
+    // with both an OD and a TP policy from being counted at value twice.
+    totalIdv: live.reduce((a, r) => a + (r.idvTotal || 0), 0),
+    premium: live.reduce((a, r) => a + (r.grossPremium || 0), 0)
+  };
+}
+
+export function vehiclesByHolder(group, rows) {
+  const { head } = reportHeading(group, rows);
+  return [...new Set(rows.map(r => r.holder || 'Unknown'))]
+    .sort((a, b) => (a === head ? -1 : b === head ? 1 : a.localeCompare(b)))
+    .map(h => {
+      const own = rows.filter(r => (r.holder || 'Unknown') === h);
+      return {
+        holder: h,
+        isHead: h === head,
+        vehicles: new Set(own.map(r => r.vehicleId)).size,
+        ...vehicleTotals(own)
+      };
+    });
+}
+
+export function vehiclesByClass(rows) {
+  return Object.keys(VEHICLE_CLASS_LABELS)
+    .filter(c => rows.some(r => r.vehicleClass === c))
+    .map(vehicleClass => ({
+      vehicleClass,
+      label: VEHICLE_CLASS_LABELS[vehicleClass],
+      vehicles: new Set(rows.filter(r => r.vehicleClass === vehicleClass).map(r => r.vehicleId)).size,
+      ...vehicleTotals(rows.filter(r => r.vehicleClass === vehicleClass))
+    }));
+}
+
+export function vehiclesByPolicyType(rows) {
+  return Object.keys(VEHICLE_POLICY_TYPE_LABELS)
+    .filter(t => rows.some(r => r.policyType === t))
+    .map(policyType => ({
+      policyType,
+      label: VEHICLE_POLICY_TYPE_LABELS[policyType],
+      ...vehicleTotals(rows.filter(r => r.policyType === policyType))
+    }));
+}
+
+export function vehiclesByInsurer(rows) {
+  return [...new Set(rows.map(r => r.insurerName || 'Unknown'))]
+    .sort()
+    .map(insurer => ({ insurer, ...vehicleTotals(rows.filter(r => (r.insurerName || 'Unknown') === insurer)) }));
+}
+
+export function vehiclePoliciesByExpiry(rows) {
+  return rows.slice().sort(byDate('endDate'));
+}
+
+// One line per vehicle for the fleet table — this is where a car carrying both
+// an OD and a TP policy reads as a single "Standalone OD + Third Party" entry.
+export function vehicleFleet(vehicles) {
+  return vehicles.slice().sort((a, b) => {
+    if (a.daysToExpiry == null) return 1;
+    if (b.daysToExpiry == null) return -1;
+    return a.daysToExpiry - b.daysToExpiry;
+  });
+}
+
+export const activeCoverLabel = (v) => (v.activePolicyTypes || [])
+  .map(t => VEHICLE_POLICY_TYPE_LABELS[t] || t)
+  .join(' + ') || 'None';

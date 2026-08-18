@@ -16,7 +16,7 @@ export const dbFile = join(dataDir, 'db.json');
 // data (Aditya/Neha/Yash) for demoing the app, never real financial data.
 export const GROUPS = ['MPN', 'RPS', 'DEMO'];
 
-const emptyMasters = () => ({ holders: [], investmentNames: [], licPlans: [] });
+export const emptyMasters = () => ({ holders: [], investmentNames: [], licPlans: [], vehicleInsurers: [] });
 
 const defaultData = {
   investments: [],
@@ -33,6 +33,14 @@ const defaultData = {
   // Premium payment log for health policies, same shape and purpose as
   // licPremiums — foreign-keyed by policyId.
   healthPremiums: [],
+  // Motor insurance. Unlike LIC/Health a vehicle outlives its policies and can
+  // carry several at once (a Standalone OD and a multi-year Third Party from a
+  // different insurer), so the vehicle is its own record and policies hang off
+  // it by vehicleId. vehiclePremiums is the payment log, foreign-keyed by
+  // policyId exactly like licPremiums.
+  vehicles: [],
+  vehiclePolicies: [],
+  vehiclePremiums: [],
   // Pick-lists for the Add/Edit Investment form, one per group. Holder and
   // name can only be chosen from the logged-in user's group list — new
   // entries are added on the Masters page.
@@ -49,6 +57,9 @@ db.data.licPolicies ||= [];
 db.data.licPremiums ||= [];
 db.data.healthPolicies ||= [];
 db.data.healthPremiums ||= [];
+db.data.vehicles ||= [];
+db.data.vehiclePolicies ||= [];
+db.data.vehiclePremiums ||= [];
 db.data.settings ||= defaultData.settings;
 
 // Migrate the old flat masters shape ({ holders: [], investmentNames: [] })
@@ -66,6 +77,7 @@ for (const g of GROUPS) {
   db.data.masters[g].holders ||= [];
   db.data.masters[g].investmentNames ||= [];
   db.data.masters[g].licPlans ||= [];
+  db.data.masters[g].vehicleInsurers ||= [];
 }
 
 export const sortMaster = (list) => list.sort((a, b) => a.localeCompare(b));

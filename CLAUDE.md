@@ -55,6 +55,35 @@ themselves. Don't add multi-user auth, logins, or roles.
 - HDFC demat mutual fund holdings are Regular plans, not Direct — search and match
   accordingly; don't assume Direct just because other platforms in this app are.
 
+## Vehicle policies (motor insurance)
+
+- Unlike LIC/Health, this is **two-level**: `vehicles` are the top-level record and
+  `vehiclePolicies` hang off them by `vehicleId`. A vehicle outlives its policies, and one
+  vehicle routinely carries **two concurrent policies from different insurers with
+  different expiry dates** — Narendra's XL6 has a standalone OD from Reliance alongside a
+  3-year third-party policy from HDFC ERGO. A flat one-row-per-policy list can't express
+  that, which is the whole reason for the extra level.
+- `holder` lives on the **vehicle**, never on the policy — one car, one owner, and one
+  entry in the masters `holders` cascade.
+- `policyType` is `COMPREHENSIVE` | `OD_ONLY` | `TP_ONLY`. A `TP_ONLY` policy carries **no
+  IDV**, so any total over a vehicle's policies must skip nulls rather than treat them as
+  zero — otherwise a car with both kinds of cover gets counted at its value twice. The
+  form hides the IDV and own-damage fields for `TP_ONLY`.
+- Headline figures (`totalIdv`, `premiumPaid`, `nextExpiryDate`) come from **active**
+  policies only; renewed/expired ones are records. It's "premium **paid**", not "annual
+  premium" — a third-party policy often runs three years, so annualising would be a lie.
+- **Renewal** mirrors the FD chain below (`renewedFromId`/`renewedToId`/`renewedOn`, old
+  record set to `status: 'renewed'`) with one deliberate difference: motor cover runs to
+  23:59 of `endDate`, so the new policy starts the **day after** the old one ends — an FD
+  renewal starts *on* the old maturity date. Don't "fix" this back.
+- Deleting a policy repairs the renewal chain on both neighbours; deleting a vehicle takes
+  its policies, premium log and every file in `data/vehicle-docs/` +
+  `data/vehicle-premium-docs/` with it.
+- Registration numbers are unique per group, compared with spaces/hyphens stripped and
+  upper-cased (`MH05FP6134` == `mh-05 fp 6134`) but stored as typed.
+- Insurer names come from the `vehicleInsurers` master; premium payments carry the same
+  multi-file receipt/cheque/screenshot attachments as LIC and Health.
+
 ## FD redemption / renewal (`status` on an investment)
 
 - An FD or Bank Share can be **redeemed** (`POST /api/investments/:id/redeem`) or an

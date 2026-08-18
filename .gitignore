@@ -9,6 +9,8 @@ data/health-docs/
 data/health-premium-docs/
 data/lic-docs/
 data/lic-premium-docs/
+data/vehicle-docs/
+data/vehicle-premium-docs/
 certs/*.pem
 .env
 

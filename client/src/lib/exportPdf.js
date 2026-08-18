@@ -5,7 +5,10 @@ import {
   reportHeading, totalsOf, categoryBreakdown, investorBreakdown, fdsByMaturity,
   licTotals, licByHolder, licByPlan, licByNextPremium, licByMaturity,
   healthTotals, healthByHolder, healthByType, healthByInsurer, healthByRenewal,
-  HEALTH_TYPE_LABELS, reportStamp, fileStamp, saveBlob
+  HEALTH_TYPE_LABELS, flattenVehicles, vehicleTotals, vehiclesByHolder,
+  vehiclesByPolicyType, vehiclesByInsurer, vehiclePoliciesByExpiry,
+  vehicleFleet, activeCoverLabel, VEHICLE_POLICY_TYPE_LABELS,
+  reportStamp, fileStamp, saveBlob
 } from './reportData.js';
 
 // A4 portrait, laid out as two columns so the whole reckoner lands on one page:
@@ -431,6 +434,134 @@ export function buildHealthPdf({ rows, group, filters = [], now = new Date() }) 
 
   drawFooter(doc, 'InvestTrack · health policies are tracked separately and are not part of the Investments or Dashboard totals · * group head · a negative "In" is days overdue');
   return { doc, head };
+}
+
+// `rows` are vehicles; the reckoner works at policy grain because that's what
+// expires. A car carrying separate own-damage and third-party cover therefore
+// contributes two lines to the expiry ladder and one line to the fleet table.
+export function buildVehiclesPdf({ rows, group, filters = [], now = new Date() }) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const { head, others } = reportHeading(group, rows);
+  const policies = flattenVehicles(rows);
+  const totals = vehicleTotals(policies);
+  const FULL_W = PAGE_W - 2 * M;
+  const expiries = vehiclePoliciesByExpiry(policies);
+  const nextExpiry = expiries.find(p => !p.closed && p.endDate);
+
+  drawHeader(doc, {
+    title: 'Vehicle Insurance Ready Reckoner',
+    head, others, now,
+    scope: scopeLine(policies.length, 'policy', filters).replace('policys', 'policies')
+  });
+  let y = drawTiles(doc, [
+    ['Vehicles', String(totals.vehicles), INK],
+    ['Total IDV', `Rs ${money(totals.totalIdv)}`, INK],
+    ['Premium Paid', `Rs ${money(totals.premium)}`, INK],
+    ['Next Expiry', nextExpiry ? `${shortDate(nextExpiry.endDate)} · ${dueLabel(nextExpiry.daysToExpiry)}` : '—',
+      nextExpiry ? dueColor(nextExpiry.daysToExpiry) : MUTED]
+  ], 25);
+
+  // ---- Who owns what, and how much cover it carries
+  const holderRows = vehiclesByHolder(group, policies);
+  let ly = sectionTitle(doc, LEFT_X, y + 8, 'Cover per person');
+  ly = table(doc, {
+    startY: ly, margin: { left: LEFT_X }, tableWidth: COL_W,
+    head: [['Owner', 'Vehicles', 'Live', 'Total IDV', 'Premium']],
+    body: holderRows.map(h => [
+      h.holder + (h.isHead ? ' *' : ''), h.vehicles, h.activeCount,
+      money(h.totalIdv), money(h.premium)
+    ]),
+    foot: [['All owners', totals.vehicles, totals.activeCount, money(totals.totalIdv), money(totals.premium)]],
+    columnStyles: {
+      0: { cellWidth: 24, fontStyle: 'bold' }, 1: { cellWidth: 12, halign: 'right' },
+      2: { cellWidth: 8, halign: 'right' },
+      3: { halign: 'right', fontStyle: 'bold' }, 4: { halign: 'right' }
+    }
+  });
+
+  let ry = sectionTitle(doc, RIGHT_X, y + 8, 'Cover by type');
+  ry = table(doc, {
+    startY: ry, margin: { left: RIGHT_X, right: M }, tableWidth: COL_W,
+    head: [['Cover', '#', 'Total IDV', 'Premium']],
+    body: vehiclesByPolicyType(policies).map(t => [t.label, t.count, money(t.totalIdv), money(t.premium)]),
+    foot: [['All cover', totals.count, money(totals.totalIdv), money(totals.premium)]],
+    columnStyles: {
+      0: { cellWidth: 28, fontStyle: 'bold' }, 1: { cellWidth: 8, halign: 'right' },
+      2: { halign: 'right' }, 3: { halign: 'right' }
+    }
+  });
+
+  // ---- Every policy, soonest to lapse at the top
+  let by = sectionTitle(doc, LEFT_X, Math.max(ly, ry) + 8, 'Policies by expiry');
+  by = table(doc, {
+    startY: by, margin: { left: M, right: M }, tableWidth: FULL_W,
+    head: [['Registration', 'Vehicle', 'Insurer', 'Cover', 'Owner', 'Total IDV', 'Premium', 'Expires', 'In']],
+    body: expiries.map(p => [
+      p.registrationNo || '—', p.vehicleLabel || '—', p.insurerName || '—',
+      VEHICLE_POLICY_TYPE_LABELS[p.policyType] || p.policyType || '—', p.holder || '—',
+      p.idvTotal ? money(p.idvTotal) : '—', money(p.grossPremium),
+      shortDate(p.endDate), p.closed ? '—' : dueLabel(p.daysToExpiry)
+    ]),
+    foot: [[`Total (${totals.count})`, '', '', '', '', money(totals.totalIdv), money(totals.premium), '', '']],
+    columnStyles: {
+      0: { cellWidth: 18 }, 1: { cellWidth: 46 }, 2: { cellWidth: 38 }, 3: { cellWidth: 16 },
+      4: { cellWidth: 14 }, 5: { cellWidth: 18, halign: 'right' }, 6: { cellWidth: 16, halign: 'right' },
+      7: { cellWidth: 17, halign: 'center' }, 8: { cellWidth: 11, halign: 'right' }
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 8) {
+        const row = expiries[data.row.index];
+        if (row.closed) { data.cell.styles.textColor = MUTED; return; }
+        data.cell.styles.textColor = dueColor(row.daysToExpiry);
+        if (row.daysToExpiry != null && row.daysToExpiry <= 30) data.cell.styles.fontStyle = 'bold';
+      }
+    }
+  });
+
+  // ---- How the cover is spread across insurers
+  let by2 = sectionTitle(doc, LEFT_X, by + 8, 'Cover by insurer');
+  by2 = table(doc, {
+    startY: by2, margin: { left: LEFT_X }, tableWidth: COL_W,
+    head: [['Insurer', '#', 'Total IDV', 'Premium']],
+    body: vehiclesByInsurer(policies).map(i => [i.insurer, i.count, money(i.totalIdv), money(i.premium)]),
+    foot: [['All insurers', totals.count, money(totals.totalIdv), money(totals.premium)]],
+    columnStyles: {
+      0: { cellWidth: 30, fontStyle: 'bold' }, 1: { cellWidth: 8, halign: 'right' },
+      2: { halign: 'right' }, 3: { halign: 'right' }
+    }
+  });
+
+  // ---- The fleet: one line per vehicle, so concurrent cover reads as one row
+  const fleet = vehicleFleet(rows);
+  let ry2 = sectionTitle(doc, RIGHT_X, by + 8, 'Vehicles');
+  table(doc, {
+    startY: ry2, margin: { left: RIGHT_X, right: M }, tableWidth: COL_W,
+    head: [['Registration', 'Vehicle', 'Active Cover', 'Next Expiry']],
+    body: fleet.map(v => [
+      v.registrationNo || '—',
+      [v.make, v.model].filter(Boolean).join(' ') || '—',
+      activeCoverLabel(v),
+      v.nextExpiryDate ? `${shortDate(v.nextExpiryDate)} · ${dueLabel(v.daysToExpiry)}` : '—'
+    ]),
+    columnStyles: {
+      0: { cellWidth: 20, fontStyle: 'bold' }, 1: { cellWidth: 30 },
+      2: { cellWidth: 26 }, 3: { cellWidth: 19, halign: 'right' }
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 3) {
+        data.cell.styles.textColor = dueColor(fleet[data.row.index].daysToExpiry);
+      }
+    }
+  });
+
+  drawFooter(doc, 'InvestTrack · vehicle policies are tracked separately and are not part of the Investments or Dashboard totals · * group head · one row per policy — a vehicle with separate own-damage and third-party cover appears twice · totals count live cover only · a negative "In" is days overdue');
+  return { doc, head };
+}
+
+export function downloadVehiclesPdf(opts) {
+  const now = opts.now || new Date();
+  const { doc, head } = buildVehiclesPdf({ ...opts, now });
+  saveBlob(doc.output('blob'), `Vehicle-Reckoner_${head}_${fileStamp(now)}.pdf`);
 }
 
 export function downloadHealthPdf(opts) {
