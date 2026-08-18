@@ -102,5 +102,26 @@ export const api = {
     return uploadRequest(`/api/health/${id}/document`, form);
   },
   deleteHealthDocument: (id) => request(`/api/health/${id}/document`, { method: 'DELETE' }),
-  healthDocumentUrl: (id) => `/api/health/${id}/document`
+  healthDocumentUrl: (id) => `/api/health/${id}/document`,
+
+  // `files` (optional) are attachments — receipt PDF, cheque scan, payment
+  // screenshot — logged together with the payment in one multipart request.
+  addHealthPremium: (id, body, files = []) => {
+    const form = new FormData();
+    if (body.paidOn) form.append('paidOn', body.paidOn);
+    form.append('amount', body.amount);
+    if (body.notes) form.append('notes', body.notes);
+    files.forEach(f => form.append('attachments', f));
+    return uploadRequest(`/api/health/${id}/premiums`, form);
+  },
+  deleteHealthPremium: (id, paymentId) => request(`/api/health/${id}/premiums/${paymentId}`, { method: 'DELETE' }),
+  addHealthPremiumAttachments: (id, paymentId, files) => {
+    const form = new FormData();
+    files.forEach(f => form.append('attachments', f));
+    return uploadRequest(`/api/health/${id}/premiums/${paymentId}/attachments`, form);
+  },
+  deleteHealthPremiumAttachment: (id, paymentId, attachmentId) =>
+    request(`/api/health/${id}/premiums/${paymentId}/attachments/${attachmentId}`, { method: 'DELETE' }),
+  healthPremiumAttachmentUrl: (id, paymentId, attachmentId) =>
+    `/api/health/${id}/premiums/${paymentId}/attachments/${attachmentId}`
 };

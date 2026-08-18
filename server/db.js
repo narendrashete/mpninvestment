@@ -30,6 +30,9 @@ const defaultData = {
   // Investments/Dashboard), but also carry a stored PDF of the original policy
   // document (see server/routes/health.js and data/health-docs/).
   healthPolicies: [],
+  // Premium payment log for health policies, same shape and purpose as
+  // licPremiums — foreign-keyed by policyId.
+  healthPremiums: [],
   // Pick-lists for the Add/Edit Investment form, one per group. Holder and
   // name can only be chosen from the logged-in user's group list — new
   // entries are added on the Masters page.
@@ -45,6 +48,7 @@ db.data.holdings ||= [];
 db.data.licPolicies ||= [];
 db.data.licPremiums ||= [];
 db.data.healthPolicies ||= [];
+db.data.healthPremiums ||= [];
 db.data.settings ||= defaultData.settings;
 
 // Migrate the old flat masters shape ({ holders: [], investmentNames: [] })
