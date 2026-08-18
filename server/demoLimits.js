@@ -13,7 +13,8 @@ export const DEMO_LIMITS = {
   licPolicies: 30, // seeded baseline: 5
   healthPolicies: 30, // seeded baseline: 3
   healthDocBytes: 100 * 1024 * 1024, // seeded baseline: 0 (demo ships with no PDFs attached)
-  licDocBytes: 100 * 1024 * 1024 // seeded baseline: 0 (demo ships with no PDFs attached)
+  licDocBytes: 100 * 1024 * 1024, // seeded baseline: 0 (demo ships with no PDFs attached)
+  licPremiumDocBytes: 100 * 1024 * 1024 // seeded baseline: 0 (premium receipts/cheque scans)
 };
 
 // Throws once `group` is DEMO and `count` has already reached the limit for

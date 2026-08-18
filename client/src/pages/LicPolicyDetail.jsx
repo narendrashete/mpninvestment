@@ -16,6 +16,9 @@ export default function LicPolicyDetail() {
   const [loggingPremium, setLoggingPremium] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef(null);
+  const attachmentInput = useRef(null);
+  const [attachTargetId, setAttachTargetId] = useState(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
   const load = useCallback(
     () => api.licPolicy(id).then(setPolicy).catch(err => setError(err.message)),
@@ -59,6 +62,35 @@ export default function LicPolicyDetail() {
   const removeDocument = async () => {
     if (!window.confirm('Remove the uploaded policy document? You can upload a new one afterwards.')) return;
     await api.deleteLicDocument(policy.id);
+    load();
+  };
+
+  const pickAttachment = (paymentId) => {
+    setAttachTargetId(paymentId);
+    attachmentInput.current?.click();
+  };
+
+  const uploadAttachments = async (e) => {
+    const picked = Array.from(e.target.files || []);
+    e.target.value = '';
+    const targetId = attachTargetId;
+    if (!picked.length || !targetId) return;
+    setUploadingAttachment(true);
+    setError(null);
+    try {
+      await api.addLicPremiumAttachments(policy.id, targetId, picked);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploadingAttachment(false);
+      setAttachTargetId(null);
+    }
+  };
+
+  const removeAttachment = async (paymentId, attachmentId) => {
+    if (!window.confirm('Remove this attachment?')) return;
+    await api.deleteLicPremiumAttachment(policy.id, paymentId, attachmentId);
     load();
   };
 
@@ -155,7 +187,7 @@ export default function LicPolicyDetail() {
         ) : (
           <table>
             <thead>
-              <tr><th>Paid On</th><th className="num">Amount</th><th>Notes</th><th></th></tr>
+              <tr><th>Paid On</th><th className="num">Amount</th><th>Notes</th><th>Attachments</th><th></th></tr>
             </thead>
             <tbody>
               {policy.premiums.map(pay => (
@@ -163,6 +195,35 @@ export default function LicPolicyDetail() {
                   <td data-label="Paid On">{formatDate(pay.paidOn)}</td>
                   <td className="num" data-label="Amount">{formatINR(pay.amount)}</td>
                   <td data-label="Notes">{pay.notes || '—'}</td>
+                  <td data-label="Attachments">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+                      {(pay.attachments || []).map(att => (
+                        <span key={att.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                          <a
+                            href={api.licPremiumAttachmentUrl(policy.id, pay.id, att.id)}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={att.originalName}
+                          >
+                            {att.mimeType?.startsWith('image/') ? '🖼️' : '📄'}
+                          </a>
+                          <button
+                            className="btn btn-sm btn-danger"
+                            style={{ padding: '0 5px', fontSize: 11 }}
+                            title="Remove attachment"
+                            onClick={() => removeAttachment(pay.id, att.id)}
+                          >✕</button>
+                        </span>
+                      ))}
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => pickAttachment(pay.id)}
+                        disabled={uploadingAttachment}
+                      >
+                        {uploadingAttachment && attachTargetId === pay.id ? 'Uploading…' : '+ Add'}
+                      </button>
+                    </div>
+                  </td>
                   <td style={{ whiteSpace: 'nowrap' }} data-label="">
                     <button className="btn btn-sm btn-danger" onClick={() => delPremium(pay)}>✕</button>
                   </td>
@@ -171,6 +232,14 @@ export default function LicPolicyDetail() {
             </tbody>
           </table>
         )}
+        <input
+          ref={attachmentInput}
+          type="file"
+          accept="application/pdf,image/*"
+          multiple
+          onChange={uploadAttachments}
+          style={{ display: 'none' }}
+        />
       </div>
 
       {editing && (
