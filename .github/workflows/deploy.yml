@@ -8,8 +8,16 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # Hostinger's network edge intermittently drops inbound port 22 from GitHub-hosted
+      # runners' rotating IPs — same VPS/IP as the primett project, which hit and diagnosed
+      # this exact failure mode (sshd, the VPS firewall and the app itself were all fine,
+      # only the job's own SSH connection timed out; a manual rerun succeeded within minutes
+      # every time). Retrying in-job is the practical fix. Each attempt is `continue-on-error`
+      # so a transient failure doesn't fail the job outright; only exhausting all three does.
       - name: SSH and deploy
+        id: deploy_1
         uses: appleboy/ssh-action@v1.0.3
+        continue-on-error: true
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -21,6 +29,53 @@ jobs:
             # plain `git pull` aborts on the local change. The repo is the source
             # of truth for tracked files; db.json and .env are untracked/ignored
             # and survive the reset.
+            git fetch origin main
+            git reset --hard origin/main
+            npm install --omit=dev
+            npm --prefix client install
+            npm run build
+            pm2 restart investment-app
+
+      - name: Wait before retry 1
+        if: steps.deploy_1.outcome == 'failure'
+        run: sleep 20
+
+      - name: SSH and deploy (retry 1)
+        id: deploy_2
+        if: steps.deploy_1.outcome == 'failure'
+        uses: appleboy/ssh-action@v1.0.3
+        continue-on-error: true
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/investment-app
+            git fetch origin main
+            git reset --hard origin/main
+            npm install --omit=dev
+            npm --prefix client install
+            npm run build
+            pm2 restart investment-app
+
+      - name: Wait before retry 2
+        if: steps.deploy_1.outcome == 'failure' && steps.deploy_2.outcome == 'failure'
+        run: sleep 30
+
+      - name: SSH and deploy (retry 2)
+        id: deploy_3
+        # No continue-on-error here — three attempts is where this stops being "the network
+        # edge blinked" and starts being something that should actually fail the build loudly.
+        if: steps.deploy_1.outcome == 'failure' && steps.deploy_2.outcome == 'failure'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/investment-app
             git fetch origin main
             git reset --hard origin/main
             npm install --omit=dev
