@@ -41,6 +41,9 @@ export default function VehiclePolicyForm({ vehicleId, initial, onClose, onSaved
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const moreFilled = MORE_KEYS.some(k => form[k] !== '' && form[k] != null);
+  // Masters loaded but nothing on the list yet — the select would otherwise
+  // just sit empty with no clue why, which is exactly what leaves someone stuck.
+  const noInsurers = masters != null && masters.insurers.length === 0;
   // A third-party-only policy insures no vehicle value, so the IDV block and
   // the own-damage add-ons don't apply to it.
   const isTpOnly = form.policyType === 'TP_ONLY';
@@ -68,8 +71,8 @@ export default function VehiclePolicyForm({ vehicleId, initial, onClose, onSaved
         <form onSubmit={submit}>
           <div className="form-grid">
             <label className="field">Insurer
-              <select value={form.insurerName} onChange={set('insurerName')} required disabled={!masters}>
-                <option value="">{masters ? '— select insurer —' : 'Loading…'}</option>
+              <select value={form.insurerName} onChange={set('insurerName')} required disabled={!masters || noInsurers}>
+                <option value="">{!masters ? 'Loading…' : noInsurers ? 'No insurers on file yet' : '— select insurer —'}</option>
                 {(masters?.insurers || []).map(x => <option key={x} value={x}>{x}</option>)}
               </select>
             </label>
@@ -78,9 +81,17 @@ export default function VehiclePolicyForm({ vehicleId, initial, onClose, onSaved
                 {Object.entries(VEHICLE_POLICY_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </label>
-            <p className="field full muted" style={{ margin: '-6px 0 0', fontSize: 12.5 }}>
-              New insurers are added on the <Link to="/masters" onClick={onClose}>Masters</Link> page.
-            </p>
+            {noInsurers ? (
+              <p className="field full notice-banner" style={{ margin: '-6px 0 0' }}>
+                No vehicle insurers on file yet, so there's nothing to pick — add one (e.g. "HDFC ERGO",
+                "Reliance General Insurance") on the <Link to="/masters" onClick={onClose}>Masters page</Link>,
+                then come back here to add this policy.
+              </p>
+            ) : (
+              <p className="field full muted" style={{ margin: '-6px 0 0', fontSize: 12.5 }}>
+                New insurers are added on the <Link to="/masters" onClick={onClose}>Masters</Link> page.
+              </p>
+            )}
             <label className="field">Policy No.
               <input value={form.policyNo} onChange={set('policyNo')} required />
             </label>
