@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { formatDate, VEHICLE_POLICY_TYPE_LABELS } from '../lib/format.js';
 
@@ -48,6 +49,9 @@ export default function VehicleRenewForm({ vehicleId, policy, onClose, onSaved }
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const isTpOnly = form.policyType === 'TP_ONLY';
+  // Shouldn't happen — this policy already has an insurer on the master list —
+  // but guard it the same way as the Add Policy form, just in case.
+  const noInsurers = masters != null && masters.insurers.length === 0;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -75,8 +79,8 @@ export default function VehicleRenewForm({ vehicleId, policy, onClose, onSaved }
         <form onSubmit={submit}>
           <div className="form-grid">
             <label className="field">Insurer
-              <select value={form.insurerName} onChange={set('insurerName')} required disabled={!masters}>
-                <option value="">{masters ? '— select insurer —' : 'Loading…'}</option>
+              <select value={form.insurerName} onChange={set('insurerName')} required disabled={!masters || noInsurers}>
+                <option value="">{!masters ? 'Loading…' : noInsurers ? 'No insurers on file yet' : '— select insurer —'}</option>
                 {(masters?.insurers || []).map(x => <option key={x} value={x}>{x}</option>)}
               </select>
             </label>
@@ -85,6 +89,12 @@ export default function VehicleRenewForm({ vehicleId, policy, onClose, onSaved }
                 {Object.entries(VEHICLE_POLICY_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </label>
+            {noInsurers && (
+              <p className="field full notice-banner" style={{ margin: '-6px 0 0' }}>
+                No vehicle insurers on file yet — add one on the{' '}
+                <Link to="/masters" onClick={onClose}>Masters page</Link>, then come back here.
+              </p>
+            )}
             <label className="field">New Policy No.
               <input value={form.policyNo} onChange={set('policyNo')} required />
             </label>

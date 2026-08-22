@@ -239,6 +239,15 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; 
   font-size: 14px;
 }
 
+.notice-banner {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: var(--amber);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
 .search-results {
   border: 1px solid var(--border);
   border-radius: 8px;
